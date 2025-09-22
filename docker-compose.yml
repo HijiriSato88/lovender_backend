@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: lovender_mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: lovender
+      MYSQL_USER: lovender_user
+      MYSQL_PASSWORD: lovender_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./config/mysql.cnf:/etc/mysql/conf.d/mysql.cnf
+    networks:
+      - lovender_network
+
+  app:
+    build: .
+    container_name: lovender_backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=lovender_user
+      - DB_PASSWORD=lovender_password
+      - DB_NAME=lovender
+    networks:
+      - lovender_network
+
+volumes:
+  mysql_data:
+
+networks:
+  lovender_network:
+    driver: bridge
