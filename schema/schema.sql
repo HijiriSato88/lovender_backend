@@ -40,12 +40,14 @@ CREATE TABLE oshi_accounts (
 -- 3) カテゴリ（共通マスタ）
 CREATE TABLE categories (
   id          SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  slug        VARCHAR(50)  NOT NULL,
   name        VARCHAR(100) NOT NULL,
   description TEXT,
   created_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uq_categories_name (name)
+  UNIQUE KEY uq_categories_slug (slug),
+  KEY idx_categories_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 3-1) 推しごとの重要視カテゴリ
