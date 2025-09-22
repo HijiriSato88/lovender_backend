@@ -45,12 +45,14 @@ CREATE TABLE oshi_accounts (
 -- 3) カテゴリ（共通マスタ）
 CREATE TABLE categories (
   id          SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  slug        VARCHAR(50)  NOT NULL,
   name        VARCHAR(100) NOT NULL,
   description TEXT,
   created_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uq_categories_name (name)
+  UNIQUE KEY uq_categories_slug (slug),
+  KEY idx_categories_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 3-1) 推しごとの重要視カテゴリ
@@ -85,22 +87,21 @@ CREATE TABLE events (
   CONSTRAINT chk_events_time CHECK (ends_at IS NULL OR ends_at >= starts_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
 -- 1. ユーザーデータ（2件）
 INSERT INTO users (name, email, password_hash) VALUES 
 ('田中太郎', 'tanaka@example.com', '$2a$10$dummy.hash.for.password123'),
 ('佐藤花子', 'sato@example.com', '$2a$10$dummy.hash.for.password456');
 
 -- 2. カテゴリデータ（8件）
-INSERT INTO categories (name, description) VALUES 
-('ライブ・コンサート', 'ライブ、コンサートなどのイベント情報'),
-('グッズ・商品', 'グッズ発売、商品情報、コラボ商品など'),
-('メディア出演', 'テレビ、ラジオ、雑誌、インタビューなど'),
-('リリース', '新曲、アルバム、MV、配信など'),
-('イベント・ファンミ', 'ファンミーティング、サイン会、トークショーなど'),
-('ドラマ・映画', 'ドラマ出演、映画公開、舞台などの出演情報など'),
-('SNS・配信', 'インスタライブ、YouTube、TikTokなど'),
-('ニュース・発表', '重大発表、ニュース、お知らせなど');
+INSERT INTO categories (slug, name, description) VALUES 
+('live', 'ライブ・コンサート', 'ライブ、コンサートなどのイベント情報'),
+('goods', 'グッズ・商品', 'グッズ発売、商品情報、コラボ商品など'),
+('media', 'メディア出演', 'テレビ、ラジオ、雑誌、インタビューなど'),
+('release', 'リリース', '新曲、アルバム、MV、配信など'),
+('event', 'イベント・ファンミーミング', 'ファンミーティング、サイン会、トークショーなど'),
+('movie', 'ドラマ・映画', 'ドラマ出演、映画公開、舞台などの出演情報など'),
+('sns', 'SNS・配信', 'インスタライブ、YouTube、TikTokなど'),
+('news', 'ニュース・発表', '重大発表、ニュース、お知らせなど');
 
 -- 3. 推しデータ（2件）
 INSERT INTO oshis (user_id, name, description, theme_color) VALUES 
