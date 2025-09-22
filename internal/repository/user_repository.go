@@ -7,6 +7,8 @@ import (
 
 type UserRepository interface {
 	GetByID(id int64) (*models.User, error)
+	Create(user *models.User) error
+	GetByEmail(email string) (*models.User, error)
 }
 
 type userRepository struct {
@@ -19,7 +21,7 @@ func NewUserRepository(db *sql.DB) UserRepository {
 
 func (r *userRepository) GetByID(id int64) (*models.User, error) {
 	query := `
-		SELECT id, name, email, created_at, updated_at 
+		SELECT id, name, email, password_hash, created_at, updated_at 
 		FROM users 
 		WHERE id = ?
 	`
@@ -29,6 +31,54 @@ func (r *userRepository) GetByID(id int64) (*models.User, error) {
 		&user.ID,
 		&user.Name,
 		&user.Email,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *userRepository) Create(user *models.User) error {
+	query := `
+		INSERT INTO users (name, email, password_hash)
+		VALUES (?, ?, ?)
+	`
+
+	result, err := r.db.Exec(query, user.Name, user.Email, user.PasswordHash)
+	if err != nil {
+		return err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	user.ID = id
+	return nil
+}
+
+func (r *userRepository) GetByEmail(email string) (*models.User, error) {
+	query := `
+		SELECT id, name, email, password_hash, created_at, updated_at 
+		FROM users 
+		WHERE email = ?
+	`
+
+	var user models.User
+	err := r.db.QueryRow(query, email).Scan(
+		&user.ID,
+		&user.Name,
+		&user.Email,
+		&user.PasswordHash,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"lovender_backend/internal/models"
 	"lovender_backend/internal/service"
 	"net/http"
 	"strconv"
@@ -17,7 +18,7 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 		userService: userService,
 	}
 }
-
+// API接続テスト用
 func (h *UserHandler) GetUser(c echo.Context) error {
 	idStr := c.Param("id")
 
@@ -35,4 +36,52 @@ func (h *UserHandler) GetUser(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, user)
+}
+
+func (h *UserHandler) Register(c echo.Context) error {
+	var req models.RegisterRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	// バリデーション
+	if req.Name == "" || req.Email == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Name, email, and password are required"})
+	}
+
+	if len(req.Password) < 8 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password must be at least 8 characters long"})
+	}
+
+	resp, err := h.userService.Register(&req)
+	if err != nil {
+		if err.Error() == "email already exists" {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "Email already exists"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+
+	return c.JSON(http.StatusCreated, resp)
+}
+
+func (h *UserHandler) Login(c echo.Context) error {
+	var req models.LoginRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	// バリデーション
+	if req.Email == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Email and password are required"})
+	}
+
+	resp, err := h.userService.Login(&req)
+	if err != nil {
+		if err.Error() == "invalid email or password" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid email or password"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+
+	return c.JSON(http.StatusOK, resp)
 }
