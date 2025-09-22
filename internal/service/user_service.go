@@ -84,7 +84,6 @@ func (s *userService) Register(req *models.RegisterRequest) (*models.RegisterRes
 	return &models.RegisterResponse{
 		Name:      createdUser.Name,
 		Email:     createdUser.Email,
-		Password:  req.Password, // 元のパスワードを返す
 		CreatedAt: createdUser.CreatedAt,
 		Token:     token,
 	}, nil
