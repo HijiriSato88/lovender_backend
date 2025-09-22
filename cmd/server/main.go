@@ -24,6 +24,10 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
 
+	oshiRepo := repository.NewOshiRepository(db)
+	oshiService := service.NewOshiService(oshiRepo)
+	oshiHandler := handler.NewOshiHandler(oshiService)
+
 	// Echo インスタンスを作成
 	e := echo.New()
 
@@ -33,7 +37,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// ルート設定
-	routes.SetupRoutes(e, userHandler)
+	routes.SetupRoutes(e, userHandler, oshiHandler)
 
 	// サーバー起動
 	e.Logger.Fatal(e.Start(":8080"))
