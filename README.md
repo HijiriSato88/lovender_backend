@@ -8,7 +8,7 @@ Docker + Golang + Atlas を使った3層アーキテクチャ構成
 - **データベース**: MySQL 8.0
 - **DB接続**: 標準SQLパッケージ
 - **スキーマ管理**: Atlas
-- **コンテナ**: Docker & Docker Compose
+- **コンテナ**: Docker
 
 ## セットアップ
 
@@ -21,6 +21,9 @@ docker-compose up --build
 # バックグラウンドで起動する場合
 docker-compose up -d --build
 ```
+初回起動時に以下が自動で実行されます：
+- テーブル作成
+- サンプルデータの投入
 
 ### 2. 初回以降のプロジェクトを起動
 
@@ -31,9 +34,6 @@ docker-compose up
 # バックグラウンドで起動する場合
 docker-compose up -d
 ```
-初回起動時に以下が自動で実行されます：
-- テーブル作成
-- サンプルデータの投入
 
 ### 3. 開発環境でアプリを起動
 
