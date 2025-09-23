@@ -16,9 +16,12 @@ func NewCommonHandler(commonService service.CommonService) *CommonHandler {
 }
 
 func (h *CommonHandler) GetCommon(c echo.Context) error {
-	resp, err := h.commonService.GetCommon()
+
+	// 共通情報を取得
+	common, err := h.commonService.GetCommon()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 	}
-	return c.JSON(http.StatusOK, resp)
+
+	return c.JSON(http.StatusOK, common)
 }

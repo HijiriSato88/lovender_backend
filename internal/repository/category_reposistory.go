@@ -33,9 +33,12 @@ func (r *categoryRepository) GetCategory() ([]models.Category, error) {
 	for rows.Next() {
 		var id int16
 		var slug, name, desc string
-		if err := rows.Scan(&id, &slug, &name, &desc); err != nil {
+
+		err := rows.Scan(&id, &slug, &name, &desc)
+		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, models.Category{
 			ID: &id, Slug: &slug, Name: &name, Description: &desc,
 		})

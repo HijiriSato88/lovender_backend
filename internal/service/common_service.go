@@ -20,9 +20,12 @@ func NewCommonService(commonRepo repository.CategoryRepository) CommonService {
 }
 
 func (s *commonService) GetCommon() (*models.CommonResponse, error) {
-	var commonResponses []models.CommonResponse
-	// まずはダミー
+	category, err := s.commonRepo.GetCategory()
+	if err != nil {
+		return nil, err
+	}
+
 	return &models.CommonResponse{
-		Categories: commonResponses,
+		Categories: category,
 	}, nil
 }

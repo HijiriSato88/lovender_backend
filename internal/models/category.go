@@ -14,5 +14,5 @@ type Category struct {
 
 // カテゴリ一覧レスポンス
 type CommonResponse struct {
-	Categories []CommonResponse `json:"categories"`
+	Categories []Category `json:"categories"`
 }
