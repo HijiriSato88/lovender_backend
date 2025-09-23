@@ -6,6 +6,7 @@ import (
 	"lovender_backend/internal/repository"
 	"lovender_backend/internal/routes"
 	"lovender_backend/internal/service"
+	"os"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -24,6 +25,10 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
 
+	oshiRepo := repository.NewOshiRepository(db)
+	oshiService := service.NewOshiService(oshiRepo)
+	oshiHandler := handler.NewOshiHandler(oshiService)
+
 	// Echo インスタンスを作成
 	e := echo.New()
 
@@ -33,8 +38,13 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// ルート設定
-	routes.SetupRoutes(e, userHandler)
+	routes.SetupRoutes(e, userHandler, oshiHandler)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
 	// サーバー起動
-	e.Logger.Fatal(e.Start(":8080"))
+	e.Logger.Fatal(e.Start(":" + port))
 }
