@@ -6,6 +6,7 @@ import (
 	"lovender_backend/internal/repository"
 	"lovender_backend/internal/routes"
 	"lovender_backend/internal/service"
+	"os"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -39,6 +40,11 @@ func main() {
 	// ルート設定
 	routes.SetupRoutes(e, userHandler, oshiHandler)
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	// サーバー起動
-	e.Logger.Fatal(e.Start(":8080"))
+	e.Logger.Fatal(e.Start(":" + port))
 }
