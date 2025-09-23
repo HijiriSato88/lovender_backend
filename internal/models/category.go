@@ -11,3 +11,8 @@ type Category struct {
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// カテゴリ一覧レスポンス
+type CommonResponse struct {
+	Categories []CommonResponse `json:"categories"`
+}

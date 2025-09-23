@@ -1,28 +1,28 @@
 package service
 
 import (
-	"context"
 	"lovender_backend/internal/models"
 	"lovender_backend/internal/repository"
 )
 
-type CommonResponse struct {
-	Categories []models.Category `json:"categories"`
-}
-
 type CommonService interface {
-	GetCommon(ctx context.Context) (*CommonResponse, error)
+	GetCommon() (*models.CommonResponse, error)
 }
 
 type commonService struct {
-	repo repository.CategoryRepository
+	commonRepo repository.CategoryRepository
 }
 
-func NewCommonService(r repository.CategoryRepository) CommonService {
-	return &commonService{repo: r}
+func NewCommonService(commonRepo repository.CategoryRepository) CommonService {
+	return &commonService{
+		commonRepo: commonRepo,
+	}
 }
 
-func (s *commonService) GetCommon(ctx context.Context) (*CommonResponse, error) {
+func (s *commonService) GetCommon() (*models.CommonResponse, error) {
+	var commonResponses []models.CommonResponse
 	// まずはダミー
-	return &CommonResponse{Categories: []models.Category{}}, nil
+	return &models.CommonResponse{
+		Categories: commonResponses,
+	}, nil
 }

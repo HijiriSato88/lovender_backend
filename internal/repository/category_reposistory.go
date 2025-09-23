@@ -1,13 +1,12 @@
 package repository
 
 import (
-	"context"
 	"database/sql"
 	"lovender_backend/internal/models"
 )
 
 type CategoryRepository interface {
-	List(ctx context.Context) ([]models.Category, error)
+	GetCategory() ([]models.Category, error)
 }
 
 type categoryRepository struct {
@@ -18,8 +17,13 @@ func NewCategoryRepository(db *sql.DB) CategoryRepository {
 	return &categoryRepository{db: db}
 }
 
-func (r *categoryRepository) List(ctx context.Context) ([]models.Category, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, slug, name, description FROM categories ORDER BY id`)
+func (r *categoryRepository) GetCategory() ([]models.Category, error) {
+	query := `
+		SELECT id, slug, name, description
+		FROM categories
+		ORDER BY id
+	`
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err
 	}

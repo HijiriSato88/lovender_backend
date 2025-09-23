@@ -8,15 +8,15 @@ import (
 )
 
 type CommonHandler struct {
-	svc service.CommonService
+	commonService service.CommonService
 }
 
-func NewCommonHandler(s service.CommonService) *CommonHandler {
-	return &CommonHandler{svc: s}
+func NewCommonHandler(commonService service.CommonService) *CommonHandler {
+	return &CommonHandler{commonService: commonService}
 }
 
 func (h *CommonHandler) GetCommon(c echo.Context) error {
-	resp, err := h.svc.GetCommon(c.Request().Context())
+	resp, err := h.commonService.GetCommon()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 	}
