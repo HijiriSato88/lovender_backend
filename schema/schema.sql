@@ -8,7 +8,7 @@ CREATE TABLE users (
   updated_at      DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2) oshii
 CREATE TABLE oshis (
@@ -23,7 +23,7 @@ CREATE TABLE oshis (
   UNIQUE KEY uq_oshis_user_name (user_id, name),
   KEY idx_oshis_user (user_id),
   CONSTRAINT fk_oshis_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2-1) 推しの外部アカウント（URL複数）
 CREATE TABLE oshi_accounts (
@@ -35,7 +35,7 @@ CREATE TABLE oshi_accounts (
   UNIQUE KEY uq_oshi_accounts (oshi_id, url(191)),
   KEY idx_oshi_accounts_oshi (oshi_id),
   CONSTRAINT fk_oshi_accounts_oshi FOREIGN KEY (oshi_id) REFERENCES oshis(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3) カテゴリ（共通マスタ）
 CREATE TABLE categories (
@@ -48,7 +48,7 @@ CREATE TABLE categories (
   PRIMARY KEY (id),
   UNIQUE KEY uq_categories_slug (slug),
   KEY idx_categories_slug (slug)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3-1) 推しごとの重要視カテゴリ
 CREATE TABLE oshi_categories (
@@ -59,7 +59,7 @@ CREATE TABLE oshi_categories (
   KEY idx_oshi_categories_oshi (oshi_id),
   CONSTRAINT fk_oc_oshi FOREIGN KEY (oshi_id) REFERENCES oshis(id) ON DELETE CASCADE,
   CONSTRAINT fk_oc_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4) イベント（カレンダー）
 CREATE TABLE events (
@@ -80,4 +80,4 @@ CREATE TABLE events (
   CONSTRAINT fk_events_oshi FOREIGN KEY (oshi_id) REFERENCES oshis(id) ON DELETE CASCADE,
   CONSTRAINT fk_events_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
   CONSTRAINT chk_events_time CHECK (ends_at IS NULL OR ends_at >= starts_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
