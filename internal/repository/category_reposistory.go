@@ -31,7 +31,7 @@ func (r *categoryRepository) GetCategory() ([]models.Category, error) {
 
 	var out []models.Category
 	for rows.Next() {
-		var id int16
+		var id uint16
 		var slug, name, desc string
 
 		err := rows.Scan(&id, &slug, &name, &desc)
