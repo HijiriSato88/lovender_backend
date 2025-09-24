@@ -117,9 +117,9 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 
 		// カテゴリ情報を追加
 		if categoryID != nil && categoryName != nil && categoryCreatedAt != nil && categoryUpdatedAt != nil {
-			categoryIDInt16 := int16(*categoryID)
+			categoryIDUint16 := uint16(*categoryID)
 			category := &models.Category{
-				ID:          &categoryIDInt16,
+				ID:          &categoryIDUint16,
 				Name:        categoryName,
 				Description: categoryDescription,
 				CreatedAt:   *categoryCreatedAt,
@@ -128,7 +128,7 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 			// 重複チェック
 			found := false
 			for _, existing := range oshiMap[oshiID].Categories {
-				if existing.ID != nil && categoryID != nil && *existing.ID == int16(*categoryID) {
+				if existing.ID != nil && categoryID != nil && *existing.ID == uint16(*categoryID) {
 					found = true
 					break
 				}
