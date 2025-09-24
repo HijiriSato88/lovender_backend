@@ -68,7 +68,10 @@ CREATE TABLE events (
   category_id  SMALLINT UNSIGNED          DEFAULT NULL,
   title        VARCHAR(255)      NOT NULL,
   description  TEXT,
-  has_alarm    TINYINT(1)        NOT NULL DEFAULT 1,  -- 通知ON/OFF
+  url          VARCHAR(2048)              DEFAULT NULL, -- イベントURL
+  has_alarm    TINYINT(1)        NOT NULL DEFAULT 1,    -- 通知ON/OFF
+  notification_timing ENUM('0', '5m', '10m', '15m', '30m', '1h', '2h', '1d', '2d', '1w') DEFAULT '15m',
+  has_notification_sent   TINYINT(1)    DEFAULT 0,
   starts_at    DATETIME(3)       NOT NULL,
   ends_at      DATETIME(3)                DEFAULT NULL,
   created_at   DATETIME(3)       NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

@@ -73,7 +73,10 @@ CREATE TABLE events (
   category_id  SMALLINT UNSIGNED          DEFAULT NULL,
   title        VARCHAR(255)      NOT NULL,
   description  TEXT,
-  has_alarm    TINYINT(1)        NOT NULL DEFAULT 1,  -- 通知ON/OFF
+  url          VARCHAR(2048)              DEFAULT NULL,
+  has_alarm    TINYINT(1)        NOT NULL DEFAULT 1,
+  notification_timing ENUM('0', '5m', '10m', '15m', '30m', '1h', '2h', '1d', '2d', '1w') DEFAULT '15m',
+  has_notification_sent TINYINT(1) DEFAULT 0,
   starts_at    DATETIME(3)       NOT NULL,
   ends_at      DATETIME(3)                DEFAULT NULL,
   created_at   DATETIME(3)       NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -86,39 +89,3 @@ CREATE TABLE events (
   CONSTRAINT fk_events_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
   CONSTRAINT chk_events_time CHECK (ends_at IS NULL OR ends_at >= starts_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- 1. ユーザーデータ（2件）
-INSERT INTO users (name, email, password_hash) VALUES 
-('田中太郎', 'tanaka@example.com', '$2a$10$dummy.hash.for.password123'),
-('佐藤花子', 'sato@example.com', '$2a$10$dummy.hash.for.password456');
-
--- 2. カテゴリデータ（8件）
-INSERT INTO categories (slug, name, description) VALUES 
-('live', 'ライブ・コンサート', 'ライブ、コンサートなどのイベント情報'),
-('goods', 'グッズ・商品', 'グッズ発売、商品情報、コラボ商品など'),
-('media', 'メディア出演', 'テレビ、ラジオ、雑誌、インタビューなど'),
-('release', 'リリース', '新曲、アルバム、MV、配信など'),
-('event', 'イベント・ファンミーミング', 'ファンミーティング、サイン会、トークショーなど'),
-('movie', 'ドラマ・映画', 'ドラマ出演、映画公開、舞台などの出演情報など'),
-('sns', 'SNS・配信', 'インスタライブ、YouTube、TikTokなど'),
-('news', 'ニュース・発表', '重大発表、ニュース、お知らせなど');
-
--- 3. 推しデータ（2件）
-INSERT INTO oshis (user_id, name, description, theme_color) VALUES 
-(1, '山田美咲', 'アイドルグループABCのメンバー', '#FF69B4'),
-(2, '鈴木愛', 'ソロシンガー', '#87CEEB');
-
--- 4. 推しの外部アカウント（2件）
-INSERT INTO oshi_accounts (oshi_id, url) VALUES 
-(1, 'https://twitter.com/yamada_misaki'),
-(2, 'https://instagram.com/suzuki_ai_official');
-
--- 5. 推しごとの重要視カテゴリ（2件）
-INSERT INTO oshi_categories (oshi_id, category_id) VALUES 
-(1, 1), -- 山田美咲 → ライブ
-(2, 2); -- 鈴木愛 → グッズ
-
--- 6. イベントデータ（2件）
-INSERT INTO events (oshi_id, category_id, title, description, has_alarm, starts_at, ends_at) VALUES 
-(1, 1, '山田美咲ソロライブ', '待望のソロライブ開催！', 1, '2024-12-25 18:00:00', '2024-12-25 21:00:00'),
-(2, 2, 'もちどる', 'もちどる発売開始', 1, '2024-11-15 10:00:00', NULL);
