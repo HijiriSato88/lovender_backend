@@ -19,7 +19,7 @@ func NewCategoryRepository(db *sql.DB) CategoryRepository {
 
 func (r *categoryRepository) GetCategory() ([]models.Category, error) {
 	query := `
-		SELECT id, slug, name, description
+		SELECT id, slug, name, description, created_at, updated_at
 		FROM categories
 		ORDER BY id
 	`
@@ -31,17 +31,27 @@ func (r *categoryRepository) GetCategory() ([]models.Category, error) {
 
 	var out []models.Category
 	for rows.Next() {
-		var id uint16
-		var slug, name, desc string
+		var category models.Category
+		var description sql.NullString
 
-		err := rows.Scan(&id, &slug, &name, &desc)
+		err := rows.Scan(
+			&category.ID,
+			&category.Slug,
+			&category.Name,
+			&description,
+			&category.CreatedAt,
+			&category.UpdatedAt,
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		out = append(out, models.Category{
-			ID: &id, Slug: &slug, Name: &name, Description: &desc,
-		})
+		// NULLチェックしてポインタに代入
+		if description.Valid {
+			category.Description = &description.String
+		}
+
+		out = append(out, category)
 	}
 	return out, rows.Err()
 }

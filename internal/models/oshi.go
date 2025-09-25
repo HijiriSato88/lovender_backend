@@ -15,9 +15,9 @@ type Oshi struct {
 
 // 推しのアカウント情報
 type OshiAccount struct {
-	ID        *int64    `json:"id" db:"id"`
+	ID        int64     `json:"id" db:"id"`
 	OshiID    int64     `json:"oshi_id" db:"oshi_id"`
-	URL       *string   `json:"url" db:"url"`
+	URL       string    `json:"url" db:"url"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 

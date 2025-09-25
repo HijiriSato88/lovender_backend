@@ -33,6 +33,7 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 			oa.url as account_url,
 			oa.created_at as account_created_at,
 			c.id as category_id,
+			c.slug as category_slug,
 			c.name as category_name,
 			c.description as category_description,
 			c.created_at as category_created_at,
@@ -55,22 +56,22 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 
 	for rows.Next() {
 		var (
-			oshiID, userIDResult                 int64
-			accountID, categoryID                *int64
-			oshiName, themeColor                 string
-			oshiDescription                      *string
-			oshiCreatedAt, oshiUpdatedAt         time.Time
-			accountURL                           *string
-			accountCreatedAt                     *time.Time
-			categoryName, categoryDescription    *string
-			categoryCreatedAt, categoryUpdatedAt *time.Time
+			oshiID, userIDResult                            int64
+			accountID, categoryID                           *int64
+			oshiName, themeColor                            string
+			oshiDescription                                 *string
+			oshiCreatedAt, oshiUpdatedAt                    time.Time
+			accountURL                                      *string
+			accountCreatedAt                                *time.Time
+			categorySlug, categoryName, categoryDescription *string
+			categoryCreatedAt, categoryUpdatedAt            *time.Time
 		)
 
 		err := rows.Scan(
 			&oshiID, &userIDResult, &oshiName, &oshiDescription, &themeColor,
 			&oshiCreatedAt, &oshiUpdatedAt,
 			&accountID, &accountURL, &accountCreatedAt,
-			&categoryID, &categoryName, &categoryDescription,
+			&categoryID, &categorySlug, &categoryName, &categoryDescription,
 			&categoryCreatedAt, &categoryUpdatedAt,
 		)
 		if err != nil {
@@ -97,15 +98,15 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 		// アカウント情報を追加
 		if accountID != nil && accountURL != nil && accountCreatedAt != nil {
 			account := &models.OshiAccount{
-				ID:        accountID,
+				ID:        *accountID,
 				OshiID:    oshiID,
-				URL:       accountURL,
+				URL:       *accountURL,
 				CreatedAt: *accountCreatedAt,
 			}
 			// 重複チェック
 			found := false
 			for _, existing := range oshiMap[oshiID].Accounts {
-				if existing.ID != nil && accountID != nil && *existing.ID == *accountID {
+				if accountID != nil && existing.ID == *accountID {
 					found = true
 					break
 				}
@@ -116,11 +117,12 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 		}
 
 		// カテゴリ情報を追加
-		if categoryID != nil && categoryName != nil && categoryCreatedAt != nil && categoryUpdatedAt != nil {
+		if categoryID != nil && categorySlug != nil && categoryName != nil && categoryCreatedAt != nil && categoryUpdatedAt != nil {
 			categoryIDUint16 := uint16(*categoryID)
 			category := &models.Category{
-				ID:          &categoryIDUint16,
-				Name:        categoryName,
+				ID:          categoryIDUint16,
+				Slug:        *categorySlug,
+				Name:        *categoryName,
 				Description: categoryDescription,
 				CreatedAt:   *categoryCreatedAt,
 				UpdatedAt:   *categoryUpdatedAt,
@@ -128,7 +130,7 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 			// 重複チェック
 			found := false
 			for _, existing := range oshiMap[oshiID].Categories {
-				if existing.ID != nil && categoryID != nil && *existing.ID == uint16(*categoryID) {
+				if categoryID != nil && existing.ID == uint16(*categoryID) {
 					found = true
 					break
 				}

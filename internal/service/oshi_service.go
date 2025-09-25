@@ -30,17 +30,13 @@ func (s *oshiService) GetUserOshis(userID int64) (*models.OshisResponse, error) 
 		// URL一覧を配列に変換
 		var urls []string
 		for _, account := range detail.Accounts {
-			if account.URL != nil {
-				urls = append(urls, *account.URL)
-			}
+			urls = append(urls, account.URL)
 		}
 
 		// カテゴリ一覧を配列に変換
 		var categoryNames []string
 		for _, category := range detail.Categories {
-			if category.Name != nil {
-				categoryNames = append(categoryNames, *category.Name)
-			}
+			categoryNames = append(categoryNames, category.Name)
 		}
 
 		// レスポンス用の構造体に変換
