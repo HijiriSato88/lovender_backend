@@ -30,6 +30,29 @@ type OshiResponse struct {
 	Categories []string `json:"categories"`
 }
 
+// 推し作成リクエスト
+type CreateOshiRequest struct {
+	Name       string   `json:"name" validate:"required"`
+	Color      string   `json:"color" validate:"required",startswith=#",len=7`
+	URLs       []string `json:"urls"`
+	Categories []string `json:"categories"`
+}
+
+// 推し作成レスポンス
+type CreateOshiResponse struct {
+	Oshi CreateOshiResponseItem `json:"oshi"`
+}
+
+// 推し作成レスポンス内の推し情報
+type CreateOshiResponseItem struct {
+	ID         int64     `json:"id"`
+	Name       string    `json:"name"`
+	Color      string    `json:"color"`
+	URLs       []string  `json:"urls"`
+	Categories []string  `json:"categories"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 // 推し詳細情報
 type OshiWithDetails struct {
 	Oshi       *Oshi

@@ -2,13 +2,19 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
+	"log"
 	"lovender_backend/internal/models"
 	"sort"
+	"strings"
 	"time"
 )
 
 type OshiRepository interface {
 	GetOshisWithDetailsByUserID(userID int64) ([]*models.OshiWithDetails, error)
+	CreateOshi(oshi *models.Oshi) (int64, error)
+	AddAccounts(oshiID int64, urls []string) error
+	AddCategories(oshiID int64, categories []string) error
 }
 
 type oshiRepository struct {
@@ -160,4 +166,64 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 	}
 
 	return result, nil
+}
+
+// 推しを新規作成
+func (r *oshiRepository) CreateOshi(oshi *models.Oshi) (int64, error) {
+	query := `
+		INSERT INTO oshis (user_id, name, description, theme_color, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+	now := time.Now()
+
+	result, err := r.db.Exec(query, oshi.UserID, oshi.Name, oshi.Description, oshi.ThemeColor, now, now)
+	if err != nil {
+		// MySQL エラー内容をログに出す
+		log.Printf("CreateOshi ERROR: failed to insert oshi (user_id=%d, name=%s): %v",
+			oshi.UserID, oshi.Name, err)
+		return 0, fmt.Errorf("failed to insert oshi: %w", err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		log.Printf("CreateOshi ERROR: failed to get last insert ID: %v", err)
+		return 0, fmt.Errorf("failed to get oshi ID: %w", err)
+	}
+	return id, nil
+}
+
+// 推しのurlを追加
+func (r *oshiRepository) AddAccounts(oshiID int64, urls []string) error {
+	for _, url := range urls {
+		_, err := r.db.Exec(`
+          INSERT INTO oshi_accounts (oshi_id, url, created_at) 
+          VALUES (?, ?, ?)
+      `, oshiID, url, time.Now())
+		if err != nil {
+			log.Printf("AddAccounts ERROR: failed to insert url=%s for oshi_id=%d: %v",
+				url, oshiID, err)
+			return fmt.Errorf("failed to insert account url: %w", err)
+		}
+	}
+	return nil
+}
+
+// 推しにカテゴリを追加
+func (r *oshiRepository) AddCategories(oshiID int64, categories []string) error {
+	for _, category := range categories {
+		_, err := r.db.Exec(`
+            INSERT INTO oshi_categories (oshi_id, category_id) 
+            VALUES (?, (SELECT id FROM categories WHERE slug = ?))
+        `, oshiID, category)
+		if err != nil {
+			log.Printf("AddCategories ERROR: failed to insert category=%s for oshi_id=%d: %v",
+				category, oshiID, err)
+
+			// 特に category_id=null のケースを検知したい場合
+			if strings.Contains(err.Error(), "cannot be null") {
+				return fmt.Errorf("invalid category: %s", category)
+			}
+			return fmt.Errorf("failed to insert category: %w", err)
+		}
+	}
+	return nil
 }
