@@ -64,3 +64,27 @@ type OshiWithDetails struct {
 type OshisResponse struct {
 	Oshis []OshiResponse `json:"oshis"`
 }
+
+// 推し更新リクエスト
+type UpdateOshiRequest struct {
+	Name       string   `json:"name" validate:"required"`
+	Color      string   `json:"color" validate:"required,startswith=#,len=7"`
+	URLs       []string `json:"urls"`
+	Categories []string `json:"categories"`
+}
+
+// 推し更新レスポンス
+type UpdateOshiResponse struct {
+	Oshi UpdateOshiResponseItem `json:"oshi"`
+}
+
+// 推し更新レスポンス内の推し情報
+type UpdateOshiResponseItem struct {
+	ID         int64     `json:"id"`
+	Name       string    `json:"name"`
+	Color      string    `json:"color"`
+	URLs       []string  `json:"urls"`
+	Categories []string  `json:"categories"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}

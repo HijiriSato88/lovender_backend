@@ -23,6 +23,7 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *ha
 	protected.Use(jwtutil.JWTMiddleware())
 	protected.GET("/oshis", oshiHandler.GetMyOshis)
 	protected.POST("/oshis", oshiHandler.CreateOshi)
+	protected.PUT("/oshis/:oshiId", oshiHandler.UpdateOshi)
 
 	// API接続テスト用のユーザー情報取得
 	api.GET("/users/:id", userHandler.GetUser)
