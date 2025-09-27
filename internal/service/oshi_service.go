@@ -4,11 +4,8 @@ import (
 	"errors"
 	"lovender_backend/internal/models"
 	"lovender_backend/internal/repository"
-	"net/http" // ← 追加
-	"strings"  // ← 追加
+	"strings"
 	"time"
-
-	"github.com/labstack/echo/v4"
 )
 
 type OshiService interface {
@@ -65,47 +62,29 @@ func (s *oshiService) GetUserOshis(userID int64) (*models.OshisResponse, error) 
 
 // 推しの新規作成
 func (s *oshiService) CreateOshi(userID int64, req *models.CreateOshiRequest) (*models.CreateOshiResponse, error) {
-	existing, err := s.oshiRepo.GetOshisWithDetailsByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-	for _, o := range existing {
-		if o.Oshi.Name == req.Name {
-			return nil, errors.New("oshi already exists")
-		}
-	}
-
 	// 推し情報の作成
+	// descriptionは未実装のためnil固定. 将来的にreqから受け取るかも
 	oshi := &models.Oshi{
 		UserID:      userID,
 		Name:        req.Name,
-		Description: nil, // Description is optional and can be set to nil
+		Description: nil,
 		ThemeColor:  req.Color,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
 
-	oshiID, err := s.oshiRepo.CreateOshi(oshi)
+	// 推し、アカウント、カテゴリ作成
+	oshiID, err := s.oshiRepo.CreateOshiWithTransaction(oshi, req.URLs, req.Categories)
 	if err != nil {
+		// データベース制約違反をキャッチ
+		if isDuplicateKeyError(err) {
+			return nil, errors.New("oshi already exists")
+		}
+		// カテゴリ不正エラーをキャッチ
+		if strings.Contains(err.Error(), "invalid categories") {
+			return nil, errors.New("invalid categories provided")
+		}
 		return nil, err
-	}
-
-	// 推しのurlの追加
-	if len(req.URLs) > 0 {
-		err = s.oshiRepo.AddAccounts(oshiID, req.URLs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(req.Categories) > 0 {
-		err = s.oshiRepo.AddCategories(oshiID, req.Categories)
-		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
-			}
-			return nil, err
-		}
 	}
 
 	// レスポンスの整形
@@ -121,4 +100,12 @@ func (s *oshiService) CreateOshi(userID int64, req *models.CreateOshiRequest) (*
 	}
 
 	return resp, nil
+}
+
+// DB制約違反チェック
+func isDuplicateKeyError(err error) bool {
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "Duplicate entry") ||
+		strings.Contains(errMsg, "uq_oshis_user_name") ||
+		strings.Contains(errMsg, "UNIQUE constraint failed")
 }
