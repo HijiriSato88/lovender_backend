@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"lovender_backend/internal/models"
 	"lovender_backend/internal/repository"
+	"sort"
 	"strings"
 	"time"
 )
@@ -30,6 +31,11 @@ func (s *oshiService) GetUserOshis(userID int64) (*models.OshisResponse, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	// Service層で推しID順にソート
+	sort.Slice(oshisWithDetails, func(i, j int) bool {
+		return oshisWithDetails[i].Oshi.ID < oshisWithDetails[j].Oshi.ID
+	})
 
 	var oshiResponses []models.OshiResponse
 	for _, detail := range oshisWithDetails {

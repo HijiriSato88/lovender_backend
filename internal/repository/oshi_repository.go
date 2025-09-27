@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"lovender_backend/internal/models"
-	"sort"
 	"strings"
 	"time"
 )
@@ -29,7 +28,6 @@ func NewOshiRepository(db *sql.DB) OshiRepository {
 func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.OshiWithDetails, error) {
 	return r.queryOshisWithDetails("o.user_id = ?", userID)
 }
-
 
 // 推しをIDとユーザーIDで取得
 func (r *oshiRepository) GetOshiByIDAndUserID(oshiID int64, userID int64) (*models.OshiWithDetails, error) {
@@ -424,18 +422,9 @@ func (r *oshiRepository) queryOshisWithDetails(whereClause string, args ...inter
 		return nil, err
 	}
 
-	// マップを配列に変換（推しID順でソート）
-	var oshiIDs []int64
-	for oshiID := range oshiMap {
-		oshiIDs = append(oshiIDs, oshiID)
-	}
-	sort.Slice(oshiIDs, func(i, j int) bool {
-		return oshiIDs[i] < oshiIDs[j]
-	})
-
 	var result []*models.OshiWithDetails
-	for _, oshiID := range oshiIDs {
-		result = append(result, oshiMap[oshiID])
+	for _, oshiWithDetails := range oshiMap {
+		result = append(result, oshiWithDetails)
 	}
 
 	return result, nil
