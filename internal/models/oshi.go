@@ -45,12 +45,11 @@ type CreateOshiResponse struct {
 
 // 推し作成レスポンス内の推し情報
 type CreateOshiResponseItem struct {
-	ID         int64     `json:"id"`
-	Name       string    `json:"name"`
-	Color      string    `json:"color"`
-	URLs       []string  `json:"urls"`
-	Categories []string  `json:"categories"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         int64    `json:"id"`
+	Name       string   `json:"name"`
+	Color      string   `json:"color"`
+	URLs       []string `json:"urls"`
+	Categories []string `json:"categories"`
 }
 
 // 推し詳細情報
@@ -80,11 +79,9 @@ type UpdateOshiResponse struct {
 
 // 推し更新レスポンス内の推し情報
 type UpdateOshiResponseItem struct {
-	ID         int64     `json:"id"`
-	Name       string    `json:"name"`
-	Color      string    `json:"color"`
-	URLs       []string  `json:"urls"`
-	Categories []string  `json:"categories"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID         int64    `json:"id"`
+	Name       string   `json:"name"`
+	Color      string   `json:"color"`
+	URLs       []string `json:"urls"`
+	Categories []string `json:"categories"`
 }

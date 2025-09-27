@@ -103,7 +103,6 @@ func (s *oshiService) CreateOshi(userID int64, req *models.CreateOshiRequest) (*
 			Color:      req.Color,
 			URLs:       req.URLs,
 			Categories: req.Categories,
-			CreatedAt:  oshi.CreatedAt,
 		},
 	}
 
@@ -162,8 +161,6 @@ func (s *oshiService) UpdateOshi(oshiID int64, userID int64, req *models.UpdateO
 			Color:      updatedOshi.Oshi.ThemeColor,
 			URLs:       urls,
 			Categories: categoryNames,
-			CreatedAt:  updatedOshi.Oshi.CreatedAt,
-			UpdatedAt:  updatedOshi.Oshi.UpdatedAt,
 		},
 	}
 

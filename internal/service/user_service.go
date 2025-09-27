@@ -75,17 +75,10 @@ func (s *userService) Register(req *models.RegisterRequest) (*models.RegisterRes
 		return nil, err
 	}
 
-	// 再度DBから取得してcreated_atを取得
-	createdUser, err := s.userRepo.GetByID(user.ID)
-	if err != nil {
-		return nil, err
-	}
-
 	return &models.RegisterResponse{
-		Name:      createdUser.Name,
-		Email:     createdUser.Email,
-		CreatedAt: createdUser.CreatedAt,
-		Token:     token,
+		Name:  user.Name,
+		Email: user.Email,
+		Token: token,
 	}, nil
 }
 
