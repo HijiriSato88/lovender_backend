@@ -12,9 +12,7 @@ import (
 
 type OshiRepository interface {
 	GetOshisWithDetailsByUserID(userID int64) ([]*models.OshiWithDetails, error)
-	CreateOshi(oshi *models.Oshi) (int64, error)
-	AddAccounts(oshiID int64, urls []string) error
-	AddCategories(oshiID int64, categories []string) error
+	CreateOshiWithTransaction(oshi *models.Oshi, urls []string, categories []string) (int64, error)
 }
 
 type oshiRepository struct {
@@ -168,62 +166,175 @@ func (r *oshiRepository) GetOshisWithDetailsByUserID(userID int64) ([]*models.Os
 	return result, nil
 }
 
-// 推しを新規作成
-func (r *oshiRepository) CreateOshi(oshi *models.Oshi) (int64, error) {
-	query := `
+// 推し、アカウント、カテゴリを作成
+func (r *oshiRepository) CreateOshiWithTransaction(oshi *models.Oshi, urls []string, categories []string) (int64, error) {
+	// トランザクション開始
+	tx, err := r.db.Begin()
+	if err != nil {
+		log.Printf("CreateOshiWithTransaction ERROR: failed to begin transaction: %v", err)
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// エラー時ロールバック
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("CreateOshiWithTransaction ERROR: failed to rollback transaction: %v", rollbackErr)
+			}
+		}
+	}()
+
+	// 推しを作成
+	now := time.Now()
+	oshiQuery := `
 		INSERT INTO oshis (user_id, name, description, theme_color, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
-	now := time.Now()
-
-	result, err := r.db.Exec(query, oshi.UserID, oshi.Name, oshi.Description, oshi.ThemeColor, now, now)
+	result, err := tx.Exec(oshiQuery, oshi.UserID, oshi.Name, oshi.Description, oshi.ThemeColor, now, now)
 	if err != nil {
-		// MySQL エラー内容をログに出す
-		log.Printf("CreateOshi ERROR: failed to insert oshi (user_id=%d, name=%s): %v",
+		log.Printf("CreateOshiWithTransaction ERROR: failed to insert oshi (user_id=%d, name=%s): %v",
 			oshi.UserID, oshi.Name, err)
 		return 0, fmt.Errorf("failed to insert oshi: %w", err)
 	}
-	id, err := result.LastInsertId()
+
+	oshiID, err := result.LastInsertId()
 	if err != nil {
-		log.Printf("CreateOshi ERROR: failed to get last insert ID: %v", err)
+		log.Printf("CreateOshiWithTransaction ERROR: failed to get last insert ID: %v", err)
 		return 0, fmt.Errorf("failed to get oshi ID: %w", err)
 	}
-	return id, nil
-}
 
-// 推しのurlを追加
-func (r *oshiRepository) AddAccounts(oshiID int64, urls []string) error {
-	for _, url := range urls {
-		_, err := r.db.Exec(`
-          INSERT INTO oshi_accounts (oshi_id, url, created_at) 
-          VALUES (?, ?, ?)
-      `, oshiID, url, time.Now())
+	// アカウントを一括追加
+	if len(urls) > 0 {
+		err = r.addAccountsInTransaction(tx, oshiID, urls)
 		if err != nil {
-			log.Printf("AddAccounts ERROR: failed to insert url=%s for oshi_id=%d: %v",
-				url, oshiID, err)
-			return fmt.Errorf("failed to insert account url: %w", err)
+			return 0, err
 		}
 	}
+
+	// カテゴリを一括追加
+	if len(categories) > 0 {
+		err = r.addCategoriesInTransaction(tx, oshiID, categories)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	// トランザクションをコミット
+	if err = tx.Commit(); err != nil {
+		log.Printf("CreateOshiWithTransaction ERROR: failed to commit transaction: %v", err)
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	log.Printf("CreateOshiWithTransaction SUCCESS: created oshi_id=%d with %d urls and %d categories",
+		oshiID, len(urls), len(categories))
+	return oshiID, nil
+}
+
+// アカウントを一括追加
+func (r *oshiRepository) addAccountsInTransaction(tx *sql.Tx, oshiID int64, urls []string) error {
+	if len(urls) == 0 {
+		return nil
+	}
+
+	// バッチINSERTのためのクエリ構築
+	urlCount := len(urls)
+	const paramsPerURL = 3 // oshi_id, url, created_at
+
+	valueStrings := make([]string, 0, urlCount)
+	valueArgs := make([]interface{}, 0, urlCount*paramsPerURL)
+	now := time.Now()
+
+	for _, url := range urls {
+		valueStrings = append(valueStrings, "(?, ?, ?)")
+		valueArgs = append(valueArgs, oshiID, url, now)
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO oshi_accounts (oshi_id, url, created_at) 
+		VALUES %s
+	`, strings.Join(valueStrings, ","))
+
+	_, err := tx.Exec(query, valueArgs...)
+	if err != nil {
+		log.Printf("addAccountsInTransaction ERROR: failed to insert accounts for oshi_id=%d: %v",
+			oshiID, err)
+		return fmt.Errorf("failed to insert accounts: %w", err)
+	}
+
 	return nil
 }
 
-// 推しにカテゴリを追加
-func (r *oshiRepository) AddCategories(oshiID int64, categories []string) error {
-	for _, category := range categories {
-		_, err := r.db.Exec(`
-            INSERT INTO oshi_categories (oshi_id, category_id) 
-            VALUES (?, (SELECT id FROM categories WHERE slug = ?))
-        `, oshiID, category)
-		if err != nil {
-			log.Printf("AddCategories ERROR: failed to insert category=%s for oshi_id=%d: %v",
-				category, oshiID, err)
+// カテゴリを一括追加
+func (r *oshiRepository) addCategoriesInTransaction(tx *sql.Tx, oshiID int64, categories []string) error {
+	if len(categories) == 0 {
+		return nil
+	}
 
-			// 特に category_id=null のケースを検知したい場合
-			if strings.Contains(err.Error(), "cannot be null") {
-				return fmt.Errorf("invalid category: %s", category)
-			}
-			return fmt.Errorf("failed to insert category: %w", err)
+	// カテゴリが存在するかチェック
+	placeholders := strings.Repeat("?,", len(categories))
+	// 最後のカンマを削除
+	placeholders = placeholders[:len(placeholders)-1]
+
+	checkQuery := fmt.Sprintf(`
+		SELECT slug FROM categories WHERE slug IN (%s)
+	`, placeholders)
+
+	args := make([]interface{}, len(categories))
+	for i, category := range categories {
+		args[i] = category
+	}
+
+	rows, err := tx.Query(checkQuery, args...)
+	if err != nil {
+		log.Printf("addCategoriesInTransaction ERROR: failed to check categories existence: %v", err)
+		return fmt.Errorf("failed to check categories existence: %w", err)
+	}
+	defer rows.Close()
+
+	// 存在するカテゴリを収集
+	existingCategories := make(map[string]bool)
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return fmt.Errorf("failed to scan category slug: %w", err)
 		}
+		existingCategories[slug] = true
+	}
+
+	// 存在しないカテゴリをチェック
+	var missingCategories []string
+	for _, category := range categories {
+		if !existingCategories[category] {
+			missingCategories = append(missingCategories, category)
+		}
+	}
+
+	if len(missingCategories) > 0 {
+		return fmt.Errorf("invalid categories: %s", strings.Join(missingCategories, ", "))
+	}
+
+	// バッチINSERTのためのクエリ構築
+	categoryCount := len(categories)
+	const paramsPerCategory = 2 // oshi_id, category (slug)
+
+	valueStrings := make([]string, 0, categoryCount)
+	valueArgs := make([]interface{}, 0, categoryCount*paramsPerCategory)
+
+	for _, category := range categories {
+		valueStrings = append(valueStrings, "(?, (SELECT id FROM categories WHERE slug = ?))")
+		valueArgs = append(valueArgs, oshiID, category)
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO oshi_categories (oshi_id, category_id) 
+		VALUES %s
+	`, strings.Join(valueStrings, ","))
+
+	_, err = tx.Exec(query, valueArgs...)
+	if err != nil {
+		log.Printf("addCategoriesInTransaction ERROR: failed to insert categories for oshi_id=%d: %v",
+			oshiID, err)
+		return fmt.Errorf("failed to insert categories: %w", err)
 	}
 	return nil
 }

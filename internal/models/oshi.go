@@ -33,7 +33,7 @@ type OshiResponse struct {
 // 推し作成リクエスト
 type CreateOshiRequest struct {
 	Name       string   `json:"name" validate:"required"`
-	Color      string   `json:"color" validate:"required",startswith=#",len=7`
+	Color      string   `json:"color" validate:"required,startswith=#,len=7"`
 	URLs       []string `json:"urls"`
 	Categories []string `json:"categories"`
 }

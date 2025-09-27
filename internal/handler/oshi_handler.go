@@ -1,14 +1,11 @@
 package handler
 
 import (
-	"bytes"
-	"io"
 	"log"
 	"lovender_backend/internal/models"
 	"lovender_backend/internal/service"
 	"lovender_backend/pkg/jwtutil"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -43,12 +40,7 @@ func (h *OshiHandler) GetMyOshis(c echo.Context) error {
 
 // 推しの新規作成
 func (h *OshiHandler) CreateOshi(c echo.Context) error {
-	// デバッグ: リクエストBodyを表示
-	body, _ := io.ReadAll(c.Request().Body)
-	log.Printf("DEBUG BODY: %s", string(body))
-	c.Request().Body = io.NopCloser(bytes.NewBuffer(body)) // Bind用に戻す
-
-	// JWTトークンからユーザー情報を取得
+	// ユーザー情報を取得
 	claims, err := jwtutil.ExtractUser(c)
 	if err != nil {
 		log.Printf("CreateOshi ERROR: invalid token: %v", err)
@@ -62,13 +54,12 @@ func (h *OshiHandler) CreateOshi(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
 
-	// Serviceの呼び出し
 	resp, err := h.oshiService.CreateOshi(int64(claims.UserID), &req)
 	if err != nil {
 		if err.Error() == "oshi already exists" {
 			return c.JSON(http.StatusConflict, map[string]string{"error": "Oshi already exists"})
 		}
-		if strings.Contains(err.Error(), "invalid category") {
+		if err.Error() == "invalid categories provided" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid category"})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create oshi"})
