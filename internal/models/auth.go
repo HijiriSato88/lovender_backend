@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 // 新規登録リクエスト
 type RegisterRequest struct {
 	Name     string `json:"name" validate:"required"`
@@ -11,10 +9,9 @@ type RegisterRequest struct {
 
 // 新規登録レスポンス
 type RegisterResponse struct {
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-	Token     string    `json:"token"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Token string `json:"token"`
 }
 
 // ログインリクエスト

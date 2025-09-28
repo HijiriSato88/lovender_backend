@@ -4,10 +4,15 @@ import "time"
 
 // カテゴリ情報
 type Category struct {
-	ID          *int16    `json:"id" db:"id"`
-	Slug        *string   `json:"slug" db:"slug"`
-	Name        *string   `json:"name" db:"name"`
+	ID          uint16    `json:"id" db:"id"`
+	Slug        string    `json:"slug" db:"slug"`
+	Name        string    `json:"name" db:"name"`
 	Description *string   `json:"description" db:"description"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	CreatedAt   time.Time `json:"-" db:"created_at"`
+	UpdatedAt   time.Time `json:"-" db:"updated_at"`
+}
+
+// カテゴリ一覧レスポンス
+type CommonResponse struct {
+	Categories []Category `json:"categories"`
 }
