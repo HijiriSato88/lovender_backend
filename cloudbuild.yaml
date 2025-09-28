@@ -15,39 +15,6 @@ steps:
       - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:$COMMIT_SHA'
     id: 'push-image'
 
-  # Atlas migration
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: run-migration
-    entrypoint: /bin/bash
-    env:
-      - 'DB_USER=${_DB_USER}'
-      - 'DB_PASSWORD=${_DB_PASSWORD}'
-      - 'DB_NAME=${_DB_NAME}'
-      - 'DB_HOST=127.0.0.1:3306'
-      - 'CONNECTION_NAME=${_CLOUDSQL_NAME}'
-    args:
-      - -ceu
-      - |
-        # Cloud SQL Proxy install
-        curl -L -o /usr/local/bin/cloud-sql-proxy \
-          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.11.4/cloud-sql-proxy.linux.amd64
-        chmod +x /usr/local/bin/cloud-sql-proxy
-
-        # Atlas install
-        curl -sSf https://atlasgo.sh | sh -s -- -b /usr/local/bin latest
-
-        # Proxy起動
-        cloud-sql-proxy --structured-logs --port 3306 "$CONNECTION_NAME" &
-        PROXY_PID=$!
-        for i in {1..10}; do nc -z 127.0.0.1 3306 && break || sleep 1; done
-
-        # Migration実行（atlas.hcl を利用）
-        atlas schema apply -env production --auto-approve
-
-        kill $PROXY_PID || true
-
-
-
   # Cloud Run deploy
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
