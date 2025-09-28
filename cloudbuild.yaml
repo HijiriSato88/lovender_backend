@@ -52,6 +52,7 @@ substitutions:
   _AR_PROJECT_ID: ${_AR_PROJECT_ID}
   _AR_REPOSITORY: ${_AR_REPOSITORY}
   _CLOUDSQL_NAME: ${_CLOUDSQL_NAME}
+  _DB_HOST: ${_DB_HOST}
   _DEPLOY_REGION: ${_DEPLOY_REGION}
   _PLATFORM: ${_PLATFORM}
   _SERVICE_NAME: ${_SERVICE_NAME}
@@ -63,4 +64,4 @@ substitutions:
 # Cloud Build options
 options:
   logging: CLOUD_LOGGING_ONLY
-  machineType: 'E2_HIGHCPU_8'
+  machineType: 'E2_STANDARD_1'
