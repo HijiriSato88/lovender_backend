@@ -7,5 +7,5 @@ env "local" {
 env "production" {
   src = "file://schema"
   dev = "docker://mysql/8/lovender"
-  url = "mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}"
+  url = "mysql://${DB_USER}:${DB_PASSWORD}@tcp(${DB_HOST})/${DB_NAME}"
 }
