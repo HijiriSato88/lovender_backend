@@ -15,15 +15,34 @@ steps:
       - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:$COMMIT_SHA'
     id: 'push-image'
 
+  # Cloud SQL Proxy setup
+  - name: 'gcr.io/cloudsql-docker/gce-proxy'
+    entrypoint: 'sh'
+    args:
+      - -c
+      - |
+        /cloud-sql-proxy --structured-logs \
+          --port 3306 ${_CLOUDSQL_NAME} &
+        sleep 5
+    id: start-cloud-sql-proxy
+
   # Database migration with Atlas
   - name: 'arigaio/atlas:latest'
     entrypoint: 'sh'
+    env:
+      - 'DB_USER=${_DB_USER}'
+      - 'DB_PASSWORD=${_DB_PASSWORD}'
+      - 'DB_HOST=host.docker.internal'
+      - 'DB_NAME=${_DB_NAME}'
     args:
       - '-c'
       - |
+        sleep 10
         atlas schema apply \
-          --url "mysql://${_DB_USER}:${_DB_PASSWORD}@${_CLOUDSQL_NAME}/${_DB_NAME}" \
-          --to "file://schema" \
+          --env production \
+          --dry-run
+        atlas schema apply \
+          --env production \
           --auto-approve
     id: 'run-migration'
 
