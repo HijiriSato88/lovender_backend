@@ -9,6 +9,7 @@ import (
 
 type EventsRepository interface {
 	GetOshiEventsByUserID(userID int64) (*models.OshiEventsResponse, error)
+	GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error)
 }
 
 type eventsRepository struct {
@@ -144,4 +145,76 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 		return nil, err
 	}
 	return response, nil
+}
+
+func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			e.id as event_id,
+			e.title as event_title,
+			e.description as event_description,
+			e.url as event_url,
+			e.starts_at as event_starts_at,
+			e.ends_at as event_ends_at,
+			e.has_alarm as event_has_alarm,
+			e.notification_timing as event_notification_timing,
+			e.has_notification_sent as event_has_notification_sent,
+			o.id as oshi_id,
+			o.name as oshi_name,
+			o.theme_color as oshi_color
+		FROM events e
+		INNER JOIN oshis o ON e.oshi_id = o.id
+		WHERE e.id = %d AND o.user_id = %d
+	`, eventID, userID)
+
+	row := r.db.QueryRow(query)
+
+	var (
+		eventTitle               string
+		eventDescription         *string
+		eventURL                 *string
+		eventStartsAt            time.Time
+		eventEndsAt              *time.Time
+		eventHasAlarm            bool
+		eventNotificationTiming  string
+		eventHasNotificationSent bool
+		oshiID                   int64
+		oshiName                 string
+		oshiColor                string
+	)
+
+	err := row.Scan(
+		&eventID, &eventTitle, &eventDescription, &eventURL, &eventStartsAt, &eventEndsAt,
+		&eventHasAlarm, &eventNotificationTiming, &eventHasNotificationSent,
+		&oshiID, &oshiName, &oshiColor,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("event not found")
+		}
+		return nil, err
+	}
+
+	oshi := models.EventOshi{
+		ID:    oshiID,
+		Name:  oshiName,
+		Color: oshiColor,
+	}
+
+	// EventDetailを組み立て
+	eventDetail := &models.EventDetail{
+		ID:                    eventID,
+		Title:                 eventTitle,
+		Description:           eventDescription,
+		URL:                   eventURL,
+		Starts_at:             eventStartsAt,
+		Ends_at:               eventEndsAt,
+		Has_alarm:             eventHasAlarm,
+		Notification_timing:   eventNotificationTiming,
+		Has_notification_sent: eventHasNotificationSent,
+		Oshi:                  oshi,
+	}
+
+	return eventDetail, nil
 }
