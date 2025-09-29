@@ -127,19 +127,17 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 			Category:              category,
 		}
 
-		// ここまでで idx と ev（models.Event）ができている前提
-		dup := false
-		for _, existing := range resp.Oshis[idx].Events {
-			if existing.ID == ev.ID {
-				dup = true
+		// 重複チェック
+		found := false
+		for _, existing := range response.Oshis[index].Events {
+			if existing.ID == event.ID {
+				found = true
 				break
 			}
 		}
-		if !dup {
-			resp.Oshis[idx].Events = append(resp.Oshis[idx].Events, ev)
+		if !found {
+			response.Oshis[index].Events = append(response.Oshis[index].Events, event)
 		}
-
-		response.Oshis[index].Events = append(response.Oshis[index].Events, event)
 	}
 
 	if err := rows.Err(); err != nil {
