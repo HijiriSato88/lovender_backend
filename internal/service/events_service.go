@@ -17,8 +17,10 @@ func NewEventsService(eventsRepo repository.EventsRepository) EventsService {
 }
 
 func (s *eventsService) GetUserOshiEvents(userID int64) (*models.OshiEventsResponse, error) {
+	events, err := s.eventsRepo.GetOshiEventsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
 
-	return &models.OshiEventsResponse{
-		Oshis: make([]models.OshiEventsResponseItem, 0),
-	}, nil
+	return events, nil
 }
