@@ -22,7 +22,7 @@ func NewEventsRepository(db *sql.DB) EventsRepository {
 }
 
 func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEventsResponse, error) {
-	query := fmt.Sprintf(`
+	query := `
 		SELECT
 			o.id as oshi_id,
 			o.name as oshi_name,
@@ -42,11 +42,11 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 		FROM oshis o
 		LEFT JOIN events e ON o.id = e.oshi_id
 		LEFT JOIN categories c ON e.category_id = c.id
-		WHERE o.user_id = %d
+		WHERE o.user_id = ?
 		ORDER BY o.id ASC, e.starts_at ASC, e.id ASC
-	`, userID)
+	`
 
-	rows, err := r.db.Query(query)
+	rows, err := r.db.Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +86,7 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 		if err != nil {
 			return nil, err
 		}
-
-		// --- 推しバケット確保 ---
+		// 推しごとに結果を集計
 		index, exists := indexByOshi[oshiID]
 		if !exists {
 			response.Oshis = append(response.Oshis, models.OshiEventsResponseItem{
@@ -100,7 +99,7 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 			indexByOshi[oshiID] = index
 		}
 
-		// イベントが無い行はスキップ（LEFT JOINの空振り）
+		// イベントが無い行はスキップ
 		if eventID == nil {
 			continue
 		}
@@ -149,7 +148,7 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 }
 
 func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error) {
-	query := fmt.Sprintf(`
+	query := `
 		SELECT
 			e.id as event_id,
 			e.title as event_title,
@@ -165,10 +164,10 @@ func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*m
 			o.theme_color as oshi_color
 		FROM events e
 		INNER JOIN oshis o ON e.oshi_id = o.id
-		WHERE e.id = %d AND o.user_id = %d
-	`, eventID, userID)
+		WHERE e.id = ? AND o.user_id = ?
+	`
 
-	row := r.db.QueryRow(query)
+	row := r.db.QueryRow(query, eventID, userID)
 
 	var (
 		eventTitle               string
@@ -197,6 +196,7 @@ func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*m
 		return nil, err
 	}
 
+	// EventOshiを組み立て
 	oshi := models.EventOshi{
 		ID:    oshiID,
 		Name:  oshiName,
@@ -221,18 +221,18 @@ func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*m
 }
 
 func (r *eventsRepository) UpdateEventByID(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdatedEventDetail, error) {
-
-	checkQuery := fmt.Sprintf(`
+	// イベントがユーザーの所有する推しか確認
+	checkQuery := `
 		SELECT EXISTS (
 		SELECT 1
 		FROM events e
 		INNER JOIN oshis o ON e.oshi_id = o.id
-		WHERE e.id = %d AND o.user_id = %d
+		WHERE e.id = ? AND o.user_id = ?
 		) AS event_exists
-	`, eventID, userID)
+	`
 
 	var count int
-	err := r.db.QueryRow(checkQuery).Scan(&count)
+	err := r.db.QueryRow(checkQuery, eventID, userID).Scan(&count)
 	if err != nil {
 		return nil, err
 	}
@@ -269,41 +269,43 @@ func (r *eventsRepository) UpdateEventByID(eventID int64, userID int64, req *mod
 	}
 
 	// 更新されたイベント情報を取得
-	selectQuery := fmt.Sprintf(`
+	selectQuery := `
 		SELECT 
 			id, title, description, url, starts_at, ends_at, 
-			has_alarm, notification_timing
+			has_alarm, notification_timing, has_notification_sent
 		FROM events 
-		WHERE id = %d
-	`, eventID)
+		WHERE id = ?
+	`
 
-	row := r.db.QueryRow(selectQuery)
+	row := r.db.QueryRow(selectQuery, eventID)
 
 	var (
-		id                 int64
-		title              string
-		description        *string
-		url                *string
-		startsAt           time.Time
-		endsAt             *time.Time
-		hasAlarm           bool
-		notificationTiming string
+		id                  int64
+		title               string
+		description         *string
+		url                 *string
+		startsAt            time.Time
+		endsAt              *time.Time
+		hasAlarm            bool
+		notificationTiming  string
+		hasNotificationSent bool
 	)
 
 	err = row.Scan(&id, &title, &description, &url, &startsAt, &endsAt,
-		&hasAlarm, &notificationTiming)
+		&hasAlarm, &notificationTiming, &hasNotificationSent)
 	if err != nil {
 		return nil, err
 	}
 
 	return &models.UpdatedEventDetail{
-		ID:                  id,
-		Title:               title,
-		Description:         description,
-		URL:                 url,
-		Starts_at:           startsAt,
-		Ends_at:             endsAt,
-		Has_alarm:           hasAlarm,
-		Notification_timing: notificationTiming,
+		ID:                    id,
+		Title:                 title,
+		Description:           description,
+		URL:                   url,
+		Starts_at:             startsAt,
+		Ends_at:               endsAt,
+		Has_alarm:             hasAlarm,
+		Notification_timing:   notificationTiming,
+		Has_notification_sent: hasNotificationSent,
 	}, nil
 }
