@@ -61,3 +61,37 @@ type EventOshi struct {
 type EventDetailResponse struct {
 	Event EventDetail `json:"event"`
 }
+
+// イベント更新リクエスト
+type UpdateEventRequest struct {
+	Event UpdateEventData `json:"event"`
+}
+
+// イベント更新データ
+type UpdateEventData struct {
+	Title               string     `json:"title" validate:"required"`
+	Description         *string    `json:"description"`
+	URL                 *string    `json:"url"`
+	Starts_at           time.Time  `json:"starts_at" validate:"required"`
+	Ends_at             *time.Time `json:"ends_at"`
+	Has_alarm           bool       `json:"has_alarm"`
+	Notification_timing string     `json:"notification_timing" validate:"required"`
+}
+
+// イベント更新レスポンス
+type UpdateEventResponse struct {
+	Event UpdatedEventDetail `json:"event"`
+}
+
+// 更新されたイベント詳細情報（推し情報なし）
+type UpdatedEventDetail struct {
+	ID                    int64      `json:"id"`
+	Title                 string     `json:"title"`
+	Description           *string    `json:"description"`
+	URL                   *string    `json:"url"`
+	Starts_at             time.Time  `json:"starts_at"`
+	Ends_at               *time.Time `json:"ends_at"`
+	Has_alarm             bool       `json:"has_alarm"`
+	Notification_timing   string     `json:"notification_timing"`
+	Has_notification_sent bool       `json:"has_notification_sent"`
+}

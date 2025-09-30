@@ -10,6 +10,7 @@ import (
 type EventsRepository interface {
 	GetOshiEventsByUserID(userID int64) (*models.OshiEventsResponse, error)
 	GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error)
+	UpdateEventByID(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdatedEventDetail, error)
 }
 
 type eventsRepository struct {
@@ -217,4 +218,92 @@ func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*m
 	}
 
 	return eventDetail, nil
+}
+
+func (r *eventsRepository) UpdateEventByID(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdatedEventDetail, error) {
+
+	checkQuery := fmt.Sprintf(`
+		SELECT EXISTS (
+		SELECT 1
+		FROM events e
+		INNER JOIN oshis o ON e.oshi_id = o.id
+		WHERE e.id = %d AND o.user_id = %d
+		) AS event_exists
+	`, eventID, userID)
+
+	var count int
+	err := r.db.QueryRow(checkQuery).Scan(&count)
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, fmt.Errorf("event not found")
+	}
+
+	// イベント更新
+	updateQuery := `
+		UPDATE events 
+		SET title = ?,
+		    description = ?,
+		    url = ?,
+		    starts_at = ?,
+		    ends_at = ?,
+		    has_alarm = ?,
+		    notification_timing = ?,
+		    updated_at = NOW(3)
+		WHERE id = ?
+	`
+
+	_, err = r.db.Exec(
+		updateQuery,
+		req.Title,
+		req.Description,
+		req.URL,
+		req.Starts_at,
+		req.Ends_at,
+		req.Has_alarm,
+		req.Notification_timing,
+		eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 更新されたイベント情報を取得
+	selectQuery := fmt.Sprintf(`
+		SELECT 
+			id, title, description, url, starts_at, ends_at, 
+			has_alarm, notification_timing
+		FROM events 
+		WHERE id = %d
+	`, eventID)
+
+	row := r.db.QueryRow(selectQuery)
+
+	var (
+		id                 int64
+		title              string
+		description        *string
+		url                *string
+		startsAt           time.Time
+		endsAt             *time.Time
+		hasAlarm           bool
+		notificationTiming string
+	)
+
+	err = row.Scan(&id, &title, &description, &url, &startsAt, &endsAt,
+		&hasAlarm, &notificationTiming)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.UpdatedEventDetail{
+		ID:                  id,
+		Title:               title,
+		Description:         description,
+		URL:                 url,
+		Starts_at:           startsAt,
+		Ends_at:             endsAt,
+		Has_alarm:           hasAlarm,
+		Notification_timing: notificationTiming,
+	}, nil
 }

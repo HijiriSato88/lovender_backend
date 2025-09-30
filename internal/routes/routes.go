@@ -26,6 +26,7 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *ha
 	protected.PUT("/oshis/:oshiId", oshiHandler.UpdateOshi)
 	protected.GET("/events", eventsHandler.GetMyOshiEvents)
 	protected.GET("/events/:eventId", eventsHandler.GetEventByID)
+	protected.PUT("/events/:eventId", eventsHandler.UpdateEvent)
 
 	// API接続テスト用のユーザー情報取得
 	api.GET("/users/:id", userHandler.GetUser)
