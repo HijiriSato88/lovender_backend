@@ -10,6 +10,8 @@ import (
 type EventsRepository interface {
 	GetOshiEventsByUserID(userID int64) (*models.OshiEventsResponse, error)
 	GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error)
+	UpdateEventByID(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdatedEventDetail, error)
+	CreateEventWithOshi(userID int64, req *models.CreateEventData) (*models.EventDetail, error)
 }
 
 type eventsRepository struct {
@@ -21,7 +23,7 @@ func NewEventsRepository(db *sql.DB) EventsRepository {
 }
 
 func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEventsResponse, error) {
-	query := fmt.Sprintf(`
+	query := `
 		SELECT
 			o.id as oshi_id,
 			o.name as oshi_name,
@@ -41,11 +43,11 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 		FROM oshis o
 		LEFT JOIN events e ON o.id = e.oshi_id
 		LEFT JOIN categories c ON e.category_id = c.id
-		WHERE o.user_id = %d
+		WHERE o.user_id = ?
 		ORDER BY o.id ASC, e.starts_at ASC, e.id ASC
-	`, userID)
+	`
 
-	rows, err := r.db.Query(query)
+	rows, err := r.db.Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +88,7 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 			return nil, err
 		}
 
-		// --- 推しバケット確保 ---
+		// 推しごとに結果を集計
 		index, exists := indexByOshi[oshiID]
 		if !exists {
 			response.Oshis = append(response.Oshis, models.OshiEventsResponseItem{
@@ -99,7 +101,7 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 			indexByOshi[oshiID] = index
 		}
 
-		// イベントが無い行はスキップ（LEFT JOINの空振り）
+		// イベントが無い行はスキップ
 		if eventID == nil {
 			continue
 		}
@@ -148,7 +150,7 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 }
 
 func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error) {
-	query := fmt.Sprintf(`
+	query := `
 		SELECT
 			e.id as event_id,
 			e.title as event_title,
@@ -164,10 +166,10 @@ func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*m
 			o.theme_color as oshi_color
 		FROM events e
 		INNER JOIN oshis o ON e.oshi_id = o.id
-		WHERE e.id = %d AND o.user_id = %d
-	`, eventID, userID)
+		WHERE e.id = ? AND o.user_id = ?
+	`
 
-	row := r.db.QueryRow(query)
+	row := r.db.QueryRow(query, eventID, userID)
 
 	var (
 		eventTitle               string
@@ -196,6 +198,7 @@ func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*m
 		return nil, err
 	}
 
+	// EventOshiを組み立て
 	oshi := models.EventOshi{
 		ID:    oshiID,
 		Name:  oshiName,
@@ -217,4 +220,145 @@ func (r *eventsRepository) GetEventByIDWithOshi(eventID int64, userID int64) (*m
 	}
 
 	return eventDetail, nil
+}
+
+func (r *eventsRepository) UpdateEventByID(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdatedEventDetail, error) {
+	// イベントがユーザーの所有する推しか確認
+	checkQuery := `
+		SELECT EXISTS (
+		SELECT 1
+		FROM events e
+		INNER JOIN oshis o ON e.oshi_id = o.id
+		WHERE e.id = ? AND o.user_id = ?
+		) AS event_exists
+	`
+
+	var count int
+	err := r.db.QueryRow(checkQuery, eventID, userID).Scan(&count)
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, fmt.Errorf("event not found")
+	}
+
+	// イベント更新
+	updateQuery := `
+		UPDATE events 
+		SET title = ?,
+		    description = ?,
+		    url = ?,
+		    starts_at = ?,
+		    ends_at = ?,
+		    has_alarm = ?,
+		    notification_timing = ?,
+		    updated_at = NOW(3)
+		WHERE id = ?
+	`
+
+	_, err = r.db.Exec(
+		updateQuery,
+		req.Title,
+		req.Description,
+		req.URL,
+		req.Starts_at,
+		req.Ends_at,
+		req.Has_alarm,
+		req.Notification_timing,
+		eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 更新されたイベント情報を取得
+	selectQuery := `
+		SELECT 
+			id, title, description, url, starts_at, ends_at, 
+			has_alarm, notification_timing, has_notification_sent
+		FROM events 
+		WHERE id = ?
+	`
+
+	row := r.db.QueryRow(selectQuery, eventID)
+
+	var (
+		id                  int64
+		title               string
+		description         *string
+		url                 *string
+		startsAt            time.Time
+		endsAt              *time.Time
+		hasAlarm            bool
+		notificationTiming  string
+		hasNotificationSent bool
+	)
+
+	err = row.Scan(&id, &title, &description, &url, &startsAt, &endsAt,
+		&hasAlarm, &notificationTiming, &hasNotificationSent)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.UpdatedEventDetail{
+		ID:                    id,
+		Title:                 title,
+		Description:           description,
+		URL:                   url,
+		Starts_at:             startsAt,
+		Ends_at:               endsAt,
+		Has_alarm:             hasAlarm,
+		Notification_timing:   notificationTiming,
+		Has_notification_sent: hasNotificationSent,
+	}, nil
+}
+
+func (r *eventsRepository) CreateEventWithOshi(userID int64, req *models.CreateEventData) (*models.EventDetail, error) {
+	// 推しがユーザーの所有するものか確認
+	checkOshiQuery := `
+		SELECT EXISTS (
+		SELECT 1
+		FROM oshis
+		WHERE id = ? AND user_id = ?
+		) AS oshi_exists
+	`
+
+	var oshiExists int
+	err := r.db.QueryRow(checkOshiQuery, req.OshiID, userID).Scan(&oshiExists)
+	if err != nil {
+		return nil, err
+	}
+	if oshiExists == 0 {
+		return nil, fmt.Errorf("oshi not found")
+	}
+	// イベント作成
+	insertQuery := `
+		INSERT INTO events (
+			oshi_id, title, description, url,
+			starts_at, ends_at, has_alarm, notification_timing
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := r.db.Exec(
+		insertQuery,
+		req.OshiID,
+		req.Title,
+		req.Description,
+		req.URL,
+		req.Starts_at,
+		req.Ends_at,
+		req.Has_alarm,
+		req.Notification_timing,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// 作成されたイベントのIDを取得
+	eventID, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	// 作成されたイベント詳細を取得
+	return r.GetEventByIDWithOshi(eventID, userID)
 }

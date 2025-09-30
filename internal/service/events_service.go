@@ -8,6 +8,8 @@ import (
 type EventsService interface {
 	GetUserOshiEvents(userID int64) (*models.OshiEventsResponse, error)
 	GetEventByID(eventID int64, userID int64) (*models.EventDetailResponse, error)
+	UpdateEvent(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdateEventResponse, error)
+	CreateEvent(userID int64, req *models.CreateEventData) (*models.CreateEventResponse, error)
 }
 type eventsService struct {
 	eventsRepo repository.EventsRepository
@@ -35,5 +37,29 @@ func (s *eventsService) GetEventByID(eventID int64, userID int64) (*models.Event
 
 	return &models.EventDetailResponse{
 		Event: *eventDetail,
+	}, nil
+}
+
+func (s *eventsService) UpdateEvent(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdateEventResponse, error) {
+	// イベント更新
+	updatedEvent, err := s.eventsRepo.UpdateEventByID(eventID, userID, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.UpdateEventResponse{
+		Event: *updatedEvent,
+	}, nil
+}
+
+func (s *eventsService) CreateEvent(userID int64, req *models.CreateEventData) (*models.CreateEventResponse, error) {
+	// イベント作成
+	createdEvent, err := s.eventsRepo.CreateEventWithOshi(userID, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.CreateEventResponse{
+		Event: *createdEvent,
 	}, nil
 }
