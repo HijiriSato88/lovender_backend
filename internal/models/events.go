@@ -38,16 +38,16 @@ type OshiEventsResponseItem struct {
 
 // イベント詳細情報
 type EventDetail struct {
-	ID                    int64            `json:"id"`
-	Title                 string           `json:"title"`
-	Description           *string          `json:"description"`
-	URL                   *string          `json:"url"`
-	Starts_at             time.Time        `json:"starts_at"`
-	Ends_at               *time.Time       `json:"ends_at"`
-	Has_alarm             bool             `json:"has_alarm"`
-	Notification_timing   string           `json:"notification_timing"`
-	Has_notification_sent bool             `json:"has_notification_sent"`
-	Oshi                  EventOshi        `json:"oshi"`
+	ID                    int64      `json:"id"`
+	Title                 string     `json:"title"`
+	Description           *string    `json:"description"`
+	URL                   *string    `json:"url"`
+	Starts_at             time.Time  `json:"starts_at"`
+	Ends_at               *time.Time `json:"ends_at"`
+	Has_alarm             bool       `json:"has_alarm"`
+	Notification_timing   string     `json:"notification_timing"`
+	Has_notification_sent bool       `json:"has_notification_sent"`
+	Oshi                  EventOshi  `json:"oshi"`
 }
 
 // イベント詳細レスポンス用の推し情報
@@ -94,4 +94,26 @@ type UpdatedEventDetail struct {
 	Has_alarm             bool       `json:"has_alarm"`
 	Notification_timing   string     `json:"notification_timing"`
 	Has_notification_sent bool       `json:"has_notification_sent"`
+}
+
+// イベント作成リクエスト
+type CreateEventRequest struct {
+	Event CreateEventData `json:"event"`
+}
+
+// イベント作成データ
+type CreateEventData struct {
+	OshiID              int64      `json:"oshi_id" validate:"required"`
+	Title               string     `json:"title" validate:"required"`
+	Description         *string    `json:"description"`
+	URL                 *string    `json:"url"`
+	Starts_at           time.Time  `json:"starts_at" validate:"required"`
+	Ends_at             *time.Time `json:"ends_at"`
+	Has_alarm           bool       `json:"has_alarm"`
+	Notification_timing string     `json:"notification_timing" validate:"required"`
+}
+
+// イベント作成レスポンス
+type CreateEventResponse struct {
+	Event EventDetail `json:"event"`
 }

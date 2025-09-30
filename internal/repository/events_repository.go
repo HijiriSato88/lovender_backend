@@ -11,6 +11,7 @@ type EventsRepository interface {
 	GetOshiEventsByUserID(userID int64) (*models.OshiEventsResponse, error)
 	GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error)
 	UpdateEventByID(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdatedEventDetail, error)
+	CreateEventWithOshi(userID int64, req *models.CreateEventData) (*models.EventDetail, error)
 }
 
 type eventsRepository struct {
@@ -86,6 +87,7 @@ func (r *eventsRepository) GetOshiEventsByUserID(userID int64) (*models.OshiEven
 		if err != nil {
 			return nil, err
 		}
+
 		// 推しごとに結果を集計
 		index, exists := indexByOshi[oshiID]
 		if !exists {
@@ -308,4 +310,55 @@ func (r *eventsRepository) UpdateEventByID(eventID int64, userID int64, req *mod
 		Notification_timing:   notificationTiming,
 		Has_notification_sent: hasNotificationSent,
 	}, nil
+}
+
+func (r *eventsRepository) CreateEventWithOshi(userID int64, req *models.CreateEventData) (*models.EventDetail, error) {
+	// 推しがユーザーの所有するものか確認
+	checkOshiQuery := `
+		SELECT EXISTS (
+		SELECT 1
+		FROM oshis
+		WHERE id = ? AND user_id = ?
+		) AS oshi_exists
+	`
+
+	var oshiExists int
+	err := r.db.QueryRow(checkOshiQuery, req.OshiID, userID).Scan(&oshiExists)
+	if err != nil {
+		return nil, err
+	}
+	if oshiExists == 0 {
+		return nil, fmt.Errorf("oshi not found")
+	}
+	// イベント作成
+	insertQuery := `
+		INSERT INTO events (
+			oshi_id, title, description, url,
+			starts_at, ends_at, has_alarm, notification_timing
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := r.db.Exec(
+		insertQuery,
+		req.OshiID,
+		req.Title,
+		req.Description,
+		req.URL,
+		req.Starts_at,
+		req.Ends_at,
+		req.Has_alarm,
+		req.Notification_timing,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// 作成されたイベントのIDを取得
+	eventID, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	// 作成されたイベント詳細を取得
+	return r.GetEventByIDWithOshi(eventID, userID)
 }

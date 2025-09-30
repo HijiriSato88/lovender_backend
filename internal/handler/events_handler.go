@@ -115,3 +115,45 @@ func (h EventsHandler) UpdateEvent(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, event)
 }
+
+// イベントを新規作成
+func (h EventsHandler) CreateEvent(c echo.Context) error {
+	// JWTトークンからユーザー情報を取得
+	claims, err := jwtutil.ExtractUser(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
+	}
+
+	// リクエストBodyのバインド
+	var req models.CreateEventRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	// バリデーション
+	if req.Event.OshiID == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Oshi ID is required"})
+	}
+	if req.Event.Title == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Title is required"})
+	}
+	if req.Event.Notification_timing == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Notification timing is required"})
+	}
+
+	userID := int64(claims.UserID)
+
+	// イベント作成
+	event, err := h.eventsService.CreateEvent(userID, &req.Event)
+	if err != nil {
+		if err.Error() == "oshi not found" {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Oshi not found"})
+		}
+		if err.Error() == "access denied" {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+
+	return c.JSON(http.StatusCreated, event)
+}
