@@ -66,6 +66,7 @@ CREATE TABLE events (
   id           BIGINT UNSIGNED   NOT NULL AUTO_INCREMENT,
   oshi_id      BIGINT UNSIGNED   NOT NULL,
   category_id  SMALLINT UNSIGNED          DEFAULT NULL,
+  post_id      BIGINT UNSIGNED            DEFAULT NULL,
   title        VARCHAR(255)      NOT NULL,
   description  TEXT,
   url          VARCHAR(2048)              DEFAULT NULL, -- イベントURL
