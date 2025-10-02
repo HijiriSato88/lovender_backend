@@ -7,7 +7,14 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *handler.OshiHandler, oshiGetHandler *handler.OshiGetHandler, commonHandler *handler.CommonHandler,  eventsHandler *handler.EventsHandler) {
+func SetupRoutes(
+	e *echo.Echo,
+	userHandler *handler.UserHandler,
+	oshiHandler *handler.OshiHandler,
+	oshiGetHandler *handler.OshiGetHandler,
+	commonHandler *handler.CommonHandler,
+	eventsHandler *handler.EventsHandler) {
+
 	// API ルート
 	api := e.Group("/api")
 
@@ -17,6 +24,9 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *ha
 
 	// 共通情報
 	api.GET("/common", commonHandler.GetCommon)
+
+	// ユーザー情報取得
+	api.GET("/me", userHandler.GetMe, jwtutil.JWTMiddleware())
 
 	// JWT認証が必要なエンドポイント
 	protected := api.Group("/me")
