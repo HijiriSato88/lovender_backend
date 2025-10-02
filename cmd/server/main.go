@@ -1,12 +1,18 @@
 package main
 
 import (
+	"context"
+	"lovender_backend/internal/cache"
 	"lovender_backend/internal/database"
 	"lovender_backend/internal/handler"
 	"lovender_backend/internal/repository"
 	"lovender_backend/internal/routes"
 	"lovender_backend/internal/service"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -20,11 +26,9 @@ func main() {
 	}
 	defer db.Close()
 
-	// キーワードリポジトリとキャッシュサービスを初期化
-	// 起動時にキーワードをメモリにロード（TTL: 24時間）
-	keywordRepo := repository.NewKeywordRepository(db)
-	keywordCacheService := service.NewKeywordCacheService(keywordRepo)
-	_ = keywordCacheService
+	// キャッシュマネージャーを初期化
+	// 起動時にキーワードをメモリにロード
+	cacheManager := cache.NewCacheManager(db)
 
 	// 依存関係の注入
 	userRepo := repository.NewUserRepository(db)
@@ -59,6 +63,28 @@ func main() {
 		port = "8080"
 	}
 
-	// サーバー起動
-	e.Logger.Fatal(e.Start(":" + port))
+	// Graceful shutdown
+	go func() {
+		if err := e.Start(":" + port); err != nil && err != http.ErrServerClosed {
+			e.Logger.Fatal("shutting down the server")
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	e.Logger.Info("Server is shutting down...")
+
+	// キャッシュマネージャーのシャットダウン
+	cacheManager.Shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
+
+	e.Logger.Info("Server stopped")
 }
