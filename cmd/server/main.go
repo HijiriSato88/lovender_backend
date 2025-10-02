@@ -20,6 +20,12 @@ func main() {
 	}
 	defer db.Close()
 
+	// キーワードリポジトリとキャッシュサービスを初期化
+	// 起動時にキーワードをメモリにロード（TTL: 24時間）
+	keywordRepo := repository.NewKeywordRepository(db)
+	keywordCacheService := service.NewKeywordCacheService(keywordRepo)
+	_ = keywordCacheService
+
 	// 依存関係の注入
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo)
