@@ -47,6 +47,10 @@ func main() {
 	eventsService := service.NewEventsService(eventsRepo)
 	eventsHandler := handler.NewEventsHandler(eventsService)
 
+	// イベント自動登録サービス
+	eventAutoService := service.NewEventAutoService(eventsRepo, cacheManager.GetKeywordCache())
+	eventAutoHandler := handler.NewEventAutoHandler(eventAutoService)
+
 	// Echo インスタンスを作成
 	e := echo.New()
 
@@ -56,7 +60,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// ルート設定
-	routes.SetupRoutes(e, userHandler, oshiHandler, commonHandler, eventsHandler)
+	routes.SetupRoutes(e, userHandler, oshiHandler, commonHandler, eventsHandler, eventAutoHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
