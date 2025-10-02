@@ -7,8 +7,15 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *handler.OshiHandler, commonHandler *handler.CommonHandler, eventsHandler *handler.EventsHandler) {
-	// ルート
+func SetupRoutes(
+	e *echo.Echo,
+	userHandler *handler.UserHandler,
+	oshiHandler *handler.OshiHandler,
+	oshiGetHandler *handler.OshiGetHandler,
+	commonHandler *handler.CommonHandler,
+	eventsHandler *handler.EventsHandler) {
+
+	// API ルート
 	api := e.Group("/api")
 
 	// 認証
@@ -18,6 +25,9 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *ha
 	// 共通情報
 	api.GET("/common", commonHandler.GetCommon)
 
+	// ユーザー情報取得
+	api.GET("/me", userHandler.GetMe, jwtutil.JWTMiddleware())
+
 	// JWT認証が必要なエンドポイント
 	protected := api.Group("/me")
 	protected.Use(jwtutil.JWTMiddleware())
@@ -26,6 +36,7 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *ha
 	protected.GET("/oshis", oshiHandler.GetMyOshis)
 	protected.POST("/oshis/new", oshiHandler.CreateOshi)
 	protected.PUT("/oshis/:oshiId", oshiHandler.UpdateOshi)
+	protected.GET("/oshis/:oshiId", oshiGetHandler.GetMyOshiByID)
 
 	// イベント関連のエンドポイント
 	protected.GET("/events", eventsHandler.GetMyOshiEvents)
