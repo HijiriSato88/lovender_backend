@@ -36,9 +36,9 @@ func (s *oshiGetService) GetOshiByID(oshiID int64, userID int64) (*models.GetOsh
 	}
 
 	// カテゴリ一覧を配列に変換
-	var categoryNames []string
+	var categorySlugs []string
 	for _, category := range oshiWithDetails.Categories {
-		categoryNames = append(categoryNames, category.Name)
+		categorySlugs = append(categorySlugs, category.Slug)
 	}
 
 	// レスポンス用の構造体に変換
@@ -48,7 +48,7 @@ func (s *oshiGetService) GetOshiByID(oshiID int64, userID int64) (*models.GetOsh
 			Name:       oshiWithDetails.Oshi.Name,
 			Color:      oshiWithDetails.Oshi.ThemeColor,
 			URLs:       urls,
-			Categories: categoryNames,
+			Categories: categorySlugs,
 		},
 	}
 	return resp, nil
