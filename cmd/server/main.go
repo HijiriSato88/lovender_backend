@@ -33,6 +33,9 @@ func main() {
 	commonService := service.NewCommonService(categoryRepo)
 	commonHandler := handler.NewCommonHandler(commonService)
 
+	oshiGetService := service.NewOshiGetService(oshiRepo)
+	oshiGetHandler := handler.NewOshiGetHandler(oshiGetService)
+
 	// Echo インスタンスを作成
 	e := echo.New()
 
@@ -42,7 +45,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// ルート設定
-	routes.SetupRoutes(e, userHandler, oshiHandler, commonHandler)
+	routes.SetupRoutes(e, userHandler, oshiHandler, oshiGetHandler, commonHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

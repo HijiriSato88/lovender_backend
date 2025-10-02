@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *handler.OshiHandler, commonHandler *handler.CommonHandler) {
+func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *handler.OshiHandler, oshiGetHandler *handler.OshiGetHandler, commonHandler *handler.CommonHandler) {
 	// API ルート
 	api := e.Group("/api")
 
@@ -24,6 +24,7 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *ha
 	protected.GET("/oshis", oshiHandler.GetMyOshis)
 	protected.POST("/oshis", oshiHandler.CreateOshi)
 	protected.PUT("/oshis/:oshiId", oshiHandler.UpdateOshi)
+	protected.GET("/oshis/:oshiId", oshiGetHandler.GetMyOshiByID)
 
 	// API接続テスト用のユーザー情報取得
 	api.GET("/users/:id", userHandler.GetUser)
