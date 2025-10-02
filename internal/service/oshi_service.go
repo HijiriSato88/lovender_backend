@@ -46,9 +46,9 @@ func (s *oshiService) GetUserOshis(userID int64) (*models.OshisResponse, error) 
 		}
 
 		// カテゴリ一覧を配列に変換
-		var categoryNames []string
+		var categorySlugs []string
 		for _, category := range detail.Categories {
-			categoryNames = append(categoryNames, category.Name)
+			categorySlugs = append(categorySlugs, category.Slug)
 		}
 
 		// レスポンス用の構造体に変換
@@ -57,7 +57,7 @@ func (s *oshiService) GetUserOshis(userID int64) (*models.OshisResponse, error) 
 			Name:       detail.Oshi.Name,
 			Color:      detail.Oshi.ThemeColor,
 			URLs:       urls,
-			Categories: categoryNames,
+			Categories: categorySlugs,
 		}
 
 		oshiResponses = append(oshiResponses, oshiResponse)
@@ -148,9 +148,9 @@ func (s *oshiService) UpdateOshi(oshiID int64, userID int64, req *models.UpdateO
 	}
 
 	// カテゴリ一覧を配列に変換
-	var categoryNames []string
+	var categorySlugs []string
 	for _, category := range updatedOshi.Categories {
-		categoryNames = append(categoryNames, category.Name)
+		categorySlugs = append(categorySlugs, category.Slug)
 	}
 
 	// レスポンスの整形
@@ -160,7 +160,7 @@ func (s *oshiService) UpdateOshi(oshiID int64, userID int64, req *models.UpdateO
 			Name:       updatedOshi.Oshi.Name,
 			Color:      updatedOshi.Oshi.ThemeColor,
 			URLs:       urls,
-			Categories: categoryNames,
+			Categories: categorySlugs,
 		},
 	}
 
