@@ -7,8 +7,6 @@ import (
 	"lovender_backend/internal/client"
 	"lovender_backend/internal/models"
 	"lovender_backend/internal/repository"
-	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,9 +14,10 @@ import (
 
 // EventAutoService イベント自動登録サービス
 type EventAutoService struct {
-	eventsRepo     repository.EventsRepository
-	keywordCache   *KeywordCacheService
-	externalClient *client.ExternalPostClient
+	eventsRepo        repository.EventsRepository
+	keywordCache      *KeywordCacheService
+	externalClient    *client.ExternalPostClient
+	dateTimeExtractor *DateTimeExtractionService
 }
 
 // NewEventAutoService コンストラクタ
@@ -27,9 +26,10 @@ func NewEventAutoService(
 	keywordCache *KeywordCacheService,
 ) *EventAutoService {
 	return &EventAutoService{
-		eventsRepo:     eventsRepo,
-		keywordCache:   keywordCache,
-		externalClient: client.NewExternalPostClient(),
+		eventsRepo:        eventsRepo,
+		keywordCache:      keywordCache,
+		externalClient:    client.NewExternalPostClient(),
+		dateTimeExtractor: NewDateTimeExtractionService(),
 	}
 }
 
@@ -212,10 +212,10 @@ func (s *EventAutoService) processPost(oshiID int64, post models.ExternalPost, k
 	}
 
 	// 投稿内容から日時情報を抽出
-	startsAt, endsAt := s.extractDateTime(post.Content, createdAt)
+	startsAt, endsAt := s.dateTimeExtractor.ExtractDateTime(post.Content, createdAt)
 
 	// イベントタイトル生成
-	title := fmt.Sprintf("%sの投稿情報", post.User.Name)
+	title := fmt.Sprintf(post.User.Name)
 
 	log.Printf("Post[%d] - Event time: %s to %s",
 		post.ID,
@@ -255,273 +255,6 @@ func (s *EventAutoService) extractAccountName(url string) string {
 		return ""
 	}
 	return parts[len(parts)-1]
-}
-
-// 投稿内容から日時情報を抽出
-func (s *EventAutoService) extractDateTime(content string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	// 日時抽出用の正規表現パターン
-	patterns := []struct {
-		regex   *regexp.Regexp
-		handler func([]string, time.Time) (time.Time, *time.Time)
-	}{
-		// パターン1: "2026年1月10日 14:00-16:00" (年月日+時刻範囲)
-		{
-			regexp.MustCompile(`(\d{4})年(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{2})\s*[-〜～]\s*(\d{1,2}):(\d{2})`),
-			s.handleYearDateTimeRange,
-		},
-		// パターン2: "2026年1月10日 14:00" (年月日+時刻)
-		{
-			regexp.MustCompile(`(\d{4})年(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{2})`),
-			s.handleYearDateTime,
-		},
-		// パターン3: "2026年1月10日" (年月日のみ)
-		{
-			regexp.MustCompile(`(\d{4})年(\d{1,2})月(\d{1,2})日`),
-			s.handleYearDateOnly,
-		},
-		// パターン4: "10月3日 14:00-16:00" (月日+時刻範囲)
-		{
-			regexp.MustCompile(`(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{2})\s*[-〜～]\s*(\d{1,2}):(\d{2})`),
-			s.handleDateTimeRange,
-		},
-		// パターン5: "10月3日 14:00" (月日+時刻)
-		{
-			regexp.MustCompile(`(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{2})`),
-			s.handleDateTime,
-		},
-		// パターン6: "14:00-16:00" (時刻範囲のみ)
-		{
-			regexp.MustCompile(`(\d{1,2}):(\d{2})\s*[-〜～]\s*(\d{1,2}):(\d{2})`),
-			s.handleTimeRange,
-		},
-		// パターン7: "14時〜16時" (時刻範囲・日本語)
-		{
-			regexp.MustCompile(`(\d{1,2})時\s*[〜～]\s*(\d{1,2})時`),
-			s.handleJapaneseTimeRange,
-		},
-		// パターン8: "14時から16時" (時刻範囲・から)
-		{
-			regexp.MustCompile(`(\d{1,2})時から\s*(\d{1,2})時`),
-			s.handleJapaneseTimeFromTo,
-		},
-		// パターン9: "14時から" (開始時刻のみ・から)
-		{
-			regexp.MustCompile(`(\d{1,2})時から[！!]?`),
-			s.handleJapaneseTimeFrom,
-		},
-		// パターン10: "14時〜" (開始時刻のみ・〜)
-		{
-			regexp.MustCompile(`(\d{1,2})時[〜～][！!]?`),
-			s.handleJapaneseTimeStart,
-		},
-		// パターン11: "14:00" (時刻のみ)
-		{
-			regexp.MustCompile(`(\d{1,2}):(\d{2})`),
-			s.handleTimeOnly,
-		},
-		// パターン12: "10月3日" (月日のみ)
-		{
-			regexp.MustCompile(`(\d{1,2})月(\d{1,2})日`),
-			s.handleDateOnly,
-		},
-	}
-
-	// 各パターンを試行
-	for _, pattern := range patterns {
-		matches := pattern.regex.FindStringSubmatch(content)
-		if len(matches) > 0 {
-			log.Printf("DateTime extraction - Pattern matched: %v", matches)
-			return pattern.handler(matches, postCreatedAt)
-		}
-	}
-
-	// パターンが見つからない場合はデフォルト（投稿日の0:00-1:00）
-	log.Printf("DateTime extraction - No pattern found, using default time")
-	return s.getDefaultDateTime(postCreatedAt)
-}
-
-// 年月日+時刻範囲の処理 (例: "2026年1月10日 14:00-16:00")
-func (s *EventAutoService) handleYearDateTimeRange(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	year, _ := strconv.Atoi(matches[1])
-	month, _ := strconv.Atoi(matches[2])
-	day, _ := strconv.Atoi(matches[3])
-	startHour, _ := strconv.Atoi(matches[4])
-	startMin, _ := strconv.Atoi(matches[5])
-	endHour, _ := strconv.Atoi(matches[6])
-	endMin, _ := strconv.Atoi(matches[7])
-
-	startsAt := time.Date(year, time.Month(month), day, startHour, startMin, 0, 0, postCreatedAt.Location())
-	endsAt := time.Date(year, time.Month(month), day, endHour, endMin, 0, 0, postCreatedAt.Location())
-
-	return startsAt, &endsAt
-}
-
-// 年月日+時刻の処理 (例: "2026年1月10日 14:00")
-func (s *EventAutoService) handleYearDateTime(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	year, _ := strconv.Atoi(matches[1])
-	month, _ := strconv.Atoi(matches[2])
-	day, _ := strconv.Atoi(matches[3])
-	hour, _ := strconv.Atoi(matches[4])
-	min, _ := strconv.Atoi(matches[5])
-
-	startsAt := time.Date(year, time.Month(month), day, hour, min, 0, 0, postCreatedAt.Location())
-	endsAt := startsAt.Add(1 * time.Hour) // 1時間後を終了時刻とする
-
-	return startsAt, &endsAt
-}
-
-// 年月日のみの処理 (例: "2026年1月10日")
-func (s *EventAutoService) handleYearDateOnly(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	year, _ := strconv.Atoi(matches[1])
-	month, _ := strconv.Atoi(matches[2])
-	day, _ := strconv.Atoi(matches[3])
-
-	startsAt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, postCreatedAt.Location())
-	endsAt := startsAt.Add(1 * time.Hour)
-
-	return startsAt, &endsAt
-}
-
-// 日付+時刻範囲の処理 (例: "10月3日 14:00-16:00")
-func (s *EventAutoService) handleDateTimeRange(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	month, _ := strconv.Atoi(matches[1])
-	day, _ := strconv.Atoi(matches[2])
-	startHour, _ := strconv.Atoi(matches[3])
-	startMin, _ := strconv.Atoi(matches[4])
-	endHour, _ := strconv.Atoi(matches[5])
-	endMin, _ := strconv.Atoi(matches[6])
-
-	year := postCreatedAt.Year()
-	// 月が過去の場合は翌年とする
-	if month < int(postCreatedAt.Month()) {
-		year++
-	}
-
-	startsAt := time.Date(year, time.Month(month), day, startHour, startMin, 0, 0, postCreatedAt.Location())
-	endsAt := time.Date(year, time.Month(month), day, endHour, endMin, 0, 0, postCreatedAt.Location())
-
-	return startsAt, &endsAt
-}
-
-// 日付+時刻の処理 (例: "10月3日 14:00")
-func (s *EventAutoService) handleDateTime(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	month, _ := strconv.Atoi(matches[1])
-	day, _ := strconv.Atoi(matches[2])
-	hour, _ := strconv.Atoi(matches[3])
-	min, _ := strconv.Atoi(matches[4])
-
-	year := postCreatedAt.Year()
-	if month < int(postCreatedAt.Month()) {
-		year++
-	}
-
-	startsAt := time.Date(year, time.Month(month), day, hour, min, 0, 0, postCreatedAt.Location())
-	endsAt := startsAt.Add(1 * time.Hour) // 1時間後を終了時刻とする
-
-	return startsAt, &endsAt
-}
-
-// 時刻範囲の処理 (例: "14:00-16:00")
-func (s *EventAutoService) handleTimeRange(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	startHour, _ := strconv.Atoi(matches[1])
-	startMin, _ := strconv.Atoi(matches[2])
-	endHour, _ := strconv.Atoi(matches[3])
-	endMin, _ := strconv.Atoi(matches[4])
-
-	// 投稿日の指定時刻
-	startsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		startHour, startMin, 0, 0, postCreatedAt.Location())
-	endsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		endHour, endMin, 0, 0, postCreatedAt.Location())
-
-	return startsAt, &endsAt
-}
-
-// 日本語時刻範囲の処理 (例: "14時〜16時")
-func (s *EventAutoService) handleJapaneseTimeRange(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	startHour, _ := strconv.Atoi(matches[1])
-	endHour, _ := strconv.Atoi(matches[2])
-
-	// 投稿日の指定時刻（分は0とする）
-	startsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		startHour, 0, 0, 0, postCreatedAt.Location())
-	endsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		endHour, 0, 0, 0, postCreatedAt.Location())
-
-	return startsAt, &endsAt
-}
-
-// 日本語時刻範囲の処理 (例: "14時から16時")
-func (s *EventAutoService) handleJapaneseTimeFromTo(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	startHour, _ := strconv.Atoi(matches[1])
-	endHour, _ := strconv.Atoi(matches[2])
-
-	// 投稿日の指定時刻（分は0とする）
-	startsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		startHour, 0, 0, 0, postCreatedAt.Location())
-	endsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		endHour, 0, 0, 0, postCreatedAt.Location())
-
-	return startsAt, &endsAt
-}
-
-// 日本語開始時刻の処理 (例: "14時から")
-func (s *EventAutoService) handleJapaneseTimeFrom(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	hour, _ := strconv.Atoi(matches[1])
-
-	startsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		hour, 0, 0, 0, postCreatedAt.Location())
-	endsAt := startsAt.Add(1 * time.Hour) // 1時間後を終了時刻とする
-
-	return startsAt, &endsAt
-}
-
-// 日本語開始時刻の処理 (例: "14時〜")
-func (s *EventAutoService) handleJapaneseTimeStart(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	hour, _ := strconv.Atoi(matches[1])
-
-	startsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		hour, 0, 0, 0, postCreatedAt.Location())
-	endsAt := startsAt.Add(1 * time.Hour) // 1時間後を終了時刻とする
-
-	return startsAt, &endsAt
-}
-
-// 時刻のみの処理 (例: "14:00")
-func (s *EventAutoService) handleTimeOnly(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	hour, _ := strconv.Atoi(matches[1])
-	min, _ := strconv.Atoi(matches[2])
-
-	startsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		hour, min, 0, 0, postCreatedAt.Location())
-	endsAt := startsAt.Add(1 * time.Hour)
-
-	return startsAt, &endsAt
-}
-
-// 日付のみの処理 (例: "10月3日")
-func (s *EventAutoService) handleDateOnly(matches []string, postCreatedAt time.Time) (time.Time, *time.Time) {
-	month, _ := strconv.Atoi(matches[1])
-	day, _ := strconv.Atoi(matches[2])
-
-	year := postCreatedAt.Year()
-	if month < int(postCreatedAt.Month()) {
-		year++
-	}
-
-	startsAt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, postCreatedAt.Location())
-	endsAt := startsAt.Add(1 * time.Hour)
-
-	return startsAt, &endsAt
-}
-
-// デフォルト日時の取得 (投稿日の0:00-1:00)
-func (s *EventAutoService) getDefaultDateTime(postCreatedAt time.Time) (time.Time, *time.Time) {
-	startsAt := time.Date(postCreatedAt.Year(), postCreatedAt.Month(), postCreatedAt.Day(),
-		0, 0, 0, 0, postCreatedAt.Location())
-	endsAt := startsAt.Add(1 * time.Hour)
-
-	return startsAt, &endsAt
 }
 
 // 自動イベント作成結果
