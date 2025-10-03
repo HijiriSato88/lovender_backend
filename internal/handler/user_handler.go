@@ -3,6 +3,7 @@ package handler
 import (
 	"lovender_backend/internal/models"
 	"lovender_backend/internal/service"
+	"lovender_backend/pkg/jwtutil"
 	"net/http"
 	"strconv"
 
@@ -18,6 +19,34 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 		userService: userService,
 	}
 }
+
+// ユーザー情報を取得
+func (h *UserHandler) GetMe(c echo.Context) error {
+	// JWTトークンからユーザー情報を取得
+	claims, err := jwtutil.ExtractUser(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
+	}
+
+	userID := int64(claims.UserID)
+
+	// ユーザー情報を取得
+	user, err := h.userService.GetUser(userID)
+	if err != nil {
+		if err.Error() == "user not found" {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+
+	response := models.UserInfoResponse{
+		Name:  user.Name,
+		Email: user.Email,
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
 // API接続テスト用
 func (h *UserHandler) GetUser(c echo.Context) error {
 	idStr := c.Param("id")
