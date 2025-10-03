@@ -13,9 +13,10 @@ func SetupRoutes(
 	oshiHandler *handler.OshiHandler,
 	oshiGetHandler *handler.OshiGetHandler,
 	commonHandler *handler.CommonHandler,
-	eventsHandler *handler.EventsHandler) {
+	eventsHandler *handler.EventsHandler,
+  eventAutoHandler *handler.EventAutoHandler,
+  schedulerHandler *handler.SchedulerHandler) {
 
-	// API ルート
 	api := e.Group("/api")
 
 	// 認証
@@ -46,4 +47,9 @@ func SetupRoutes(
 
 	// API接続テスト用のユーザー情報取得
 	api.GET("/users/:id", userHandler.GetUser)
+
+	// イベント自動登録エンドポイント（内部処理用）
+	z := api.Group("/z")
+	z.POST("/events", eventAutoHandler.ProcessAutoEvents)
+	z.GET("/scheduler/status", schedulerHandler.GetSchedulerStatus)
 }

@@ -61,11 +61,24 @@ CREATE TABLE oshi_categories (
   CONSTRAINT fk_oc_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 3-2) カテゴリキーワード辞書
+CREATE TABLE category_keywords (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  category_id SMALLINT UNSIGNED NOT NULL,
+  keyword     VARCHAR(100) NOT NULL,
+  created_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_category_keywords (category_id, keyword),
+  KEY idx_category_keywords_category (category_id),
+  CONSTRAINT fk_category_keywords_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 4) イベント（カレンダー）
 CREATE TABLE events (
   id           BIGINT UNSIGNED   NOT NULL AUTO_INCREMENT,
   oshi_id      BIGINT UNSIGNED   NOT NULL,
   category_id  SMALLINT UNSIGNED          DEFAULT NULL,
+  post_id      BIGINT UNSIGNED            DEFAULT NULL,
   title        VARCHAR(255)      NOT NULL,
   description  TEXT,
   url          VARCHAR(2048)              DEFAULT NULL, -- イベントURL

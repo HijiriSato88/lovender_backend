@@ -46,7 +46,6 @@ func (r *categoryRepository) GetCategory() ([]models.Category, error) {
 			return nil, err
 		}
 
-		// NULLチェックしてポインタに代入
 		if description.Valid {
 			category.Description = &description.String
 		}

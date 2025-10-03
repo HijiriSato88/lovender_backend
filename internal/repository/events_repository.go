@@ -12,6 +12,9 @@ type EventsRepository interface {
 	GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error)
 	UpdateEventByID(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdatedEventDetail, error)
 	CreateEventWithOshi(userID int64, req *models.CreateEventData) (*models.EventDetail, error)
+	CheckEventExistsByPostID(postID int64) (bool, error)
+	CreateAutoEvent(oshiID int64, postID int64, title, content string, categoryID *uint16, startsAt time.Time, endsAt *time.Time) error
+	GetAllOshisWithAccountsAndCategories() ([]*models.OshiWithDetails, error)
 }
 
 type eventsRepository struct {
@@ -361,4 +364,168 @@ func (r *eventsRepository) CreateEventWithOshi(userID int64, req *models.CreateE
 
 	// 作成されたイベント詳細を取得
 	return r.GetEventByIDWithOshi(eventID, userID)
+}
+
+// 投稿IDでイベントが既に存在するかチェック
+func (r *eventsRepository) CheckEventExistsByPostID(postID int64) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM events WHERE post_id = ?) AS event_exists`
+
+	var exists bool
+	err := r.db.QueryRow(query, postID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check event existence by post_id: %w", err)
+	}
+
+	return exists, nil
+}
+
+// 自動イベント作成
+func (r *eventsRepository) CreateAutoEvent(oshiID int64, postID int64, title, content string, categoryID *uint16, startsAt time.Time, endsAt *time.Time) error {
+	query := `
+		INSERT INTO events (
+			oshi_id, category_id, post_id, title, description, 
+			starts_at, ends_at, has_alarm, notification_timing
+		) VALUES (?, ?, ?, ?, ?, ?, ?, 1, '15m')
+	`
+
+	_, err := r.db.Exec(query, oshiID, categoryID, postID, title, content, startsAt, endsAt)
+	if err != nil {
+		return fmt.Errorf("failed to create auto event: %w", err)
+	}
+
+	return nil
+}
+
+// 全ユーザーの推し情報を取得（アカウントとカテゴリ付き）
+func (r *eventsRepository) GetAllOshisWithAccountsAndCategories() ([]*models.OshiWithDetails, error) {
+	query := `
+		SELECT 
+			o.id as oshi_id,
+			o.user_id,
+			o.name as oshi_name,
+			o.description as oshi_description,
+			o.theme_color,
+			o.created_at as oshi_created_at,
+			o.updated_at as oshi_updated_at,
+			oa.id as account_id,
+			oa.url as account_url,
+			oa.created_at as account_created_at,
+			c.id as category_id,
+			c.slug as category_slug,
+			c.name as category_name,
+			c.description as category_description,
+			c.created_at as category_created_at,
+			c.updated_at as category_updated_at
+		FROM oshis o
+		LEFT JOIN oshi_accounts oa ON o.id = oa.oshi_id
+		LEFT JOIN oshi_categories oc ON o.id = oc.oshi_id
+		LEFT JOIN categories c ON oc.category_id = c.id
+		ORDER BY o.id ASC, oa.created_at ASC, c.name ASC
+	`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all oshis: %w", err)
+	}
+	defer rows.Close()
+
+	oshiMap := make(map[int64]*models.OshiWithDetails)
+
+	for rows.Next() {
+		var (
+			oshiID, userIDResult                            int64
+			accountID, categoryID                           *int64
+			oshiName, themeColor                            string
+			oshiDescription                                 *string
+			oshiCreatedAt, oshiUpdatedAt                    time.Time
+			accountURL                                      *string
+			accountCreatedAt                                *time.Time
+			categorySlug, categoryName, categoryDescription *string
+			categoryCreatedAt, categoryUpdatedAt            *time.Time
+		)
+
+		err := rows.Scan(
+			&oshiID, &userIDResult, &oshiName, &oshiDescription, &themeColor,
+			&oshiCreatedAt, &oshiUpdatedAt,
+			&accountID, &accountURL, &accountCreatedAt,
+			&categoryID, &categorySlug, &categoryName, &categoryDescription,
+			&categoryCreatedAt, &categoryUpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan oshi row: %w", err)
+		}
+
+		// 推しがマップに未登録の場合追加
+		if _, exists := oshiMap[oshiID]; !exists {
+			oshiMap[oshiID] = &models.OshiWithDetails{
+				Oshi: &models.Oshi{
+					ID:          oshiID,
+					UserID:      userIDResult,
+					Name:        oshiName,
+					Description: oshiDescription,
+					ThemeColor:  themeColor,
+					CreatedAt:   oshiCreatedAt,
+					UpdatedAt:   oshiUpdatedAt,
+				},
+				Accounts:   []*models.OshiAccount{},
+				Categories: []*models.Category{},
+			}
+		}
+
+		// アカウント情報を追加
+		if accountID != nil && accountURL != nil && accountCreatedAt != nil {
+			account := &models.OshiAccount{
+				ID:        *accountID,
+				OshiID:    oshiID,
+				URL:       *accountURL,
+				CreatedAt: *accountCreatedAt,
+			}
+			// 重複チェック
+			found := false
+			for _, existing := range oshiMap[oshiID].Accounts {
+				if existing.ID == *accountID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				oshiMap[oshiID].Accounts = append(oshiMap[oshiID].Accounts, account)
+			}
+		}
+
+		// カテゴリ情報を追加
+		if categoryID != nil && categorySlug != nil && categoryName != nil && categoryCreatedAt != nil && categoryUpdatedAt != nil {
+			categoryIDUint16 := uint16(*categoryID)
+			category := &models.Category{
+				ID:          categoryIDUint16,
+				Slug:        *categorySlug,
+				Name:        *categoryName,
+				Description: categoryDescription,
+				CreatedAt:   *categoryCreatedAt,
+				UpdatedAt:   *categoryUpdatedAt,
+			}
+			// 重複チェック
+			found := false
+			for _, existing := range oshiMap[oshiID].Categories {
+				if existing.ID == categoryIDUint16 {
+					found = true
+					break
+				}
+			}
+			if !found {
+				oshiMap[oshiID].Categories = append(oshiMap[oshiID].Categories, category)
+			}
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating oshi rows: %w", err)
+	}
+
+	var result []*models.OshiWithDetails
+	for _, oshiWithDetails := range oshiMap {
+		result = append(result, oshiWithDetails)
+	}
+
+	return result, nil
 }
