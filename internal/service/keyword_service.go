@@ -31,7 +31,8 @@ func NewKeywordCacheService(keywordRepo *repository.KeywordRepository) *KeywordC
 
 	// 起動時にキーワードをロード
 	if err := service.LoadKeywords(); err != nil {
-		panic(fmt.Sprintf("Failed to load keywords: %v", err))
+		fmt.Printf("Warning: Failed to load keywords at startup: %v\n", err)
+		fmt.Println("Service will continue and attempt to load keywords on first access")
 	}
 
 	// バックグラウンドでの定期更新を開始
@@ -58,6 +59,18 @@ func (s *KeywordCacheService) LoadKeywords() error {
 // カテゴリIDのキーワードを取得
 func (s *KeywordCacheService) GetKeywordsByCategories(categoryIDs []uint16) []repository.CategoryKeyword {
 	s.mu.RLock()
+
+	// キャッシュが空の場合、DBから再取得を試行
+	if len(s.keywords) == 0 {
+		s.mu.RUnlock()
+		fmt.Println("Cache is empty, attempting to reload from database...")
+		if err := s.LoadKeywords(); err != nil {
+			fmt.Printf("Failed to reload keywords from database: %v\n", err)
+			return []repository.CategoryKeyword{}
+		}
+		s.mu.RLock()
+	}
+
 	defer s.mu.RUnlock()
 
 	// カテゴリIDをマップ化（高速検索のため）
@@ -84,11 +97,39 @@ func (s *KeywordCacheService) startPeriodicRefresh() {
 	for {
 		select {
 		case <-ticker.C:
-			if err := s.LoadKeywords(); err != nil {
-				fmt.Printf("Failed to refresh keywords cache: %v\n", err)
-			}
+			s.refreshWithRetry()
 		case <-s.ctx.Done():
 			fmt.Println("Keyword cache refresh goroutine stopped")
+			return
+		}
+	}
+}
+
+// リトライ機能付きキャッシュ更新
+func (s *KeywordCacheService) refreshWithRetry() {
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := s.LoadKeywords(); err != nil {
+			fmt.Printf("Failed to refresh keywords cache (attempt %d/%d): %v\n", attempt, maxRetries, err)
+
+			if attempt < maxRetries {
+				fmt.Printf("Retrying in %v...\n", retryDelay)
+				select {
+				case <-time.After(retryDelay):
+					continue
+				case <-s.ctx.Done():
+					fmt.Println("Cache refresh cancelled during retry")
+					return
+				}
+			} else {
+				fmt.Printf("All %d attempts failed. Cache will remain unchanged until next refresh cycle.\n", maxRetries)
+			}
+		} else {
+			if attempt > 1 {
+				fmt.Printf("Cache refresh succeeded on attempt %d\n", attempt)
+			}
 			return
 		}
 	}
