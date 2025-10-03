@@ -51,6 +51,10 @@ func main() {
 	eventAutoService := service.NewEventAutoService(eventsRepo, cacheManager.GetKeywordCache())
 	eventAutoHandler := handler.NewEventAutoHandler(eventAutoService)
 
+	// スケジューラーサービス（定期実行でポスト内容からイベントを作成）
+	schedulerService := service.NewSchedulerService(eventAutoService)
+	schedulerHandler := handler.NewSchedulerHandler(schedulerService)
+
 	// Echo インスタンスを作成
 	e := echo.New()
 
@@ -60,12 +64,15 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// ルート設定
-	routes.SetupRoutes(e, userHandler, oshiHandler, commonHandler, eventsHandler, eventAutoHandler)
+	routes.SetupRoutes(e, userHandler, oshiHandler, commonHandler, eventsHandler, eventAutoHandler, schedulerHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
+
+	// スケジューラーサービスを開始
+	schedulerService.Start()
 
 	// Graceful shutdown
 	go func() {
@@ -79,6 +86,9 @@ func main() {
 	<-quit
 
 	e.Logger.Info("Server is shutting down...")
+
+	// スケジューラーサービスのシャットダウン
+	schedulerService.Stop()
 
 	// キャッシュマネージャーのシャットダウン
 	cacheManager.Shutdown()

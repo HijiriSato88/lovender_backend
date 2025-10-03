@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *handler.OshiHandler, commonHandler *handler.CommonHandler, eventsHandler *handler.EventsHandler, eventAutoHandler *handler.EventAutoHandler) {
+func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *handler.OshiHandler, commonHandler *handler.CommonHandler, eventsHandler *handler.EventsHandler, eventAutoHandler *handler.EventAutoHandler, schedulerHandler *handler.SchedulerHandler) {
 	// ルート
 	api := e.Group("/api")
 
@@ -39,4 +39,5 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, oshiHandler *ha
 	// イベント自動登録エンドポイント（内部処理用）
 	z := api.Group("/z")
 	z.POST("/events", eventAutoHandler.ProcessAutoEvents)
+	z.GET("/scheduler/status", schedulerHandler.GetSchedulerStatus)
 }
