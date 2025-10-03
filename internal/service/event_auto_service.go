@@ -212,7 +212,13 @@ func (s *EventAutoService) processPost(oshiID int64, post models.ExternalPost, k
 	}
 
 	// 投稿内容から日時情報を抽出
-	startsAt, endsAt := s.dateTimeExtractor.ExtractDateTime(post.Content, createdAt)
+	startsAt, endsAt, hasDateTimePattern := s.dateTimeExtractor.ExtractDateTime(post.Content, createdAt)
+
+	// 日時パターンが見つからない場合はスキップ
+	if !hasDateTimePattern {
+		log.Printf("Post[%d] - No datetime pattern found, skipping event creation", post.ID)
+		return false
+	}
 
 	// イベントタイトル生成
 	title := fmt.Sprintf(post.User.Name)

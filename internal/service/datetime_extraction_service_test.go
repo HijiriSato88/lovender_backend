@@ -931,7 +931,7 @@ func TestDateTimeExtractionService_ExtractDateTime_Complete109Patterns(t *testin
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualStart, actualEnd := service.ExtractDateTime(tt.content, baseTime)
+			actualStart, actualEnd, _ := service.ExtractDateTime(tt.content, baseTime)
 
 			// 開始時刻の検証
 			if !actualStart.Equal(tt.expectedStart) {
@@ -1005,7 +1005,7 @@ func TestDateTimeExtractionService_PatternPriority(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualStart, actualEnd := service.ExtractDateTime(tt.content, baseTime)
+			actualStart, actualEnd, _ := service.ExtractDateTime(tt.content, baseTime)
 
 			if !actualStart.Equal(tt.expectedStart) {
 				t.Errorf("開始時刻が一致しません\n期待値: %s\n実際値: %s\n説明: %s",

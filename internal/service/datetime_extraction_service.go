@@ -16,7 +16,7 @@ func NewDateTimeExtractionService() *DateTimeExtractionService {
 }
 
 // ExtractDateTime 投稿内容から日時情報を抽出
-func (s *DateTimeExtractionService) ExtractDateTime(content string, postCreatedAt time.Time) (time.Time, *time.Time) {
+func (s *DateTimeExtractionService) ExtractDateTime(content string, postCreatedAt time.Time) (time.Time, *time.Time, bool) {
 	// 日時抽出用の正規表現パターン
 	patterns := []struct {
 		regex   *regexp.Regexp
@@ -297,13 +297,15 @@ func (s *DateTimeExtractionService) ExtractDateTime(content string, postCreatedA
 		matches := pattern.regex.FindStringSubmatch(content)
 		if len(matches) > 0 {
 			log.Printf("DateTime extraction - Pattern matched: %v", matches)
-			return pattern.handler(matches, postCreatedAt)
+			startsAt, endsAt := pattern.handler(matches, postCreatedAt)
+			return startsAt, endsAt, true
 		}
 	}
 
-	// パターンが見つからない場合はデフォルト（投稿日の0:00-1:00）
+	// パターンが見つからない場合はデフォルト（投稿日の0:00-1:00）を返すが、パターンマッチしなかったことを示す
 	log.Printf("DateTime extraction - No pattern found, using default time")
-	return s.getDefaultDateTime(postCreatedAt)
+	startsAt, endsAt := s.getDefaultDateTime(postCreatedAt)
+	return startsAt, endsAt, false
 }
 
 // 年月日+時刻範囲の処理 (例: "2026年1月10日 14:00-16:00")
