@@ -5,24 +5,24 @@ import (
 	"fmt"
 )
 
-// CategoryKeyword カテゴリキーワード構造体
+// カテゴリキーワード構造体
 type CategoryKeyword struct {
 	ID         uint64 `db:"id"`
 	CategoryID uint16 `db:"category_id"`
 	Keyword    string `db:"keyword"`
 }
 
-// KeywordRepository キーワードリポジトリ
+// キーワードリポジトリ
 type KeywordRepository struct {
 	db *sql.DB
 }
 
-// NewKeywordRepository コンストラクタ
+// コンストラクタ
 func NewKeywordRepository(db *sql.DB) *KeywordRepository {
 	return &KeywordRepository{db: db}
 }
 
-// GetAllKeywords 全キーワードを取得
+// 全キーワードを取得
 func (r *KeywordRepository) GetAllKeywords() ([]CategoryKeyword, error) {
 	query := `
 		SELECT id, category_id, keyword

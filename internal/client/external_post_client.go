@@ -6,16 +6,17 @@ import (
 	"io"
 	"lovender_backend/internal/models"
 	"net/http"
+	"sort"
 	"time"
 )
 
-// ExternalPostClient 外部投稿API用のクライアント
+// 外部投稿API用のクライアント
 type ExternalPostClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-// NewExternalPostClient コンストラクタ
+// コンストラクタ
 func NewExternalPostClient() *ExternalPostClient {
 	return &ExternalPostClient{
 		baseURL: "http://176.34.25.68:8000",
@@ -25,7 +26,7 @@ func NewExternalPostClient() *ExternalPostClient {
 	}
 }
 
-// GetPostsByUsername アカウント名で投稿を取得
+// アカウント名で投稿を取得
 func (c *ExternalPostClient) GetPostsByUsername(accountName string) ([]models.ExternalPost, error) {
 	url := fmt.Sprintf("%s/v1/posts/username/%s", c.baseURL, accountName)
 
@@ -52,21 +53,17 @@ func (c *ExternalPostClient) GetPostsByUsername(accountName string) ([]models.Ex
 	return response.Posts, nil
 }
 
-// GetLatestPostsByUsername 最新の投稿を指定件数取得
+// 最新の投稿を指定件数取得
 func (c *ExternalPostClient) GetLatestPostsByUsername(accountName string, limit int) ([]models.ExternalPost, error) {
 	posts, err := c.GetPostsByUsername(accountName)
 	if err != nil {
 		return nil, err
 	}
 
-	// created_atで降順ソート
-	for i := 0; i < len(posts)-1; i++ {
-		for j := i + 1; j < len(posts); j++ {
-			if posts[i].CreatedAt < posts[j].CreatedAt {
-				posts[i], posts[j] = posts[j], posts[i]
-			}
-		}
-	}
+	// idで降順ソート
+	sort.Slice(posts, func(i, j int) bool {
+		return posts[i].ID > posts[j].ID
+	})
 
 	// 指定件数まで切り取り
 	if len(posts) > limit {
