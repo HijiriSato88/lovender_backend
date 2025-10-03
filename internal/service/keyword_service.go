@@ -63,12 +63,15 @@ func (s *KeywordCacheService) GetKeywordsByCategories(categoryIDs []uint16) []re
 	// キャッシュが空の場合、DBから再取得を試行
 	if len(s.keywords) == 0 {
 		s.mu.RUnlock()
-		fmt.Println("Cache is empty, attempting to reload from database...")
+		fmt.Printf("Keywords cache is empty, fetching from database for categories: %v\n", categoryIDs)
 		if err := s.LoadKeywords(); err != nil {
 			fmt.Printf("Failed to reload keywords from database: %v\n", err)
 			return []repository.CategoryKeyword{}
 		}
+		fmt.Printf("Successfully loaded keywords from database, cache now contains %d keywords\n", len(s.keywords))
 		s.mu.RLock()
+	} else {
+		fmt.Printf("Keywords retrieved from cache for categories: %v (cache contains %d keywords)\n", categoryIDs, len(s.keywords))
 	}
 
 	defer s.mu.RUnlock()
@@ -86,6 +89,7 @@ func (s *KeywordCacheService) GetKeywordsByCategories(categoryIDs []uint16) []re
 		}
 	}
 
+	fmt.Printf("Found %d matching keywords for categories: %v\n", len(result), categoryIDs)
 	return result
 }
 
