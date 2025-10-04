@@ -12,7 +12,6 @@ type EventsRepository interface {
 	GetEventByIDWithOshi(eventID int64, userID int64) (*models.EventDetail, error)
 	UpdateEventByID(eventID int64, userID int64, req *models.UpdateEventData) (*models.UpdatedEventDetail, error)
 	CreateEventWithOshi(userID int64, req *models.CreateEventData) (*models.EventDetail, error)
-	CheckEventExistsByPostID(postID int64) (bool, error)
 	CheckEventExistsByPostIDAndOshiID(postID int64, oshiID int64) (bool, error)
 	CreateAutoEvent(oshiID int64, postID int64, title, content string, categoryID *uint16, startsAt time.Time, endsAt *time.Time) error
 	GetAllOshisWithAccountsAndCategories() ([]*models.OshiWithDetails, error)
@@ -365,19 +364,6 @@ func (r *eventsRepository) CreateEventWithOshi(userID int64, req *models.CreateE
 
 	// 作成されたイベント詳細を取得
 	return r.GetEventByIDWithOshi(eventID, userID)
-}
-
-// 投稿IDでイベントが既に存在するかチェック
-func (r *eventsRepository) CheckEventExistsByPostID(postID int64) (bool, error) {
-	query := `SELECT EXISTS(SELECT 1 FROM events WHERE post_id = ?) AS event_exists`
-
-	var exists bool
-	err := r.db.QueryRow(query, postID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("failed to check event existence by post_id: %w", err)
-	}
-
-	return exists, nil
 }
 
 // 投稿IDと推しIDでイベントが既に存在するかチェック
