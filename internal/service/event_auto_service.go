@@ -18,6 +18,7 @@ type EventAutoService struct {
 	keywordCache      *KeywordCacheService
 	externalClient    *client.ExternalPostClient
 	dateTimeExtractor *DateTimeExtractionService
+	jstLocation       *time.Location
 }
 
 // NewEventAutoService コンストラクタ
@@ -25,11 +26,18 @@ func NewEventAutoService(
 	eventsRepo repository.EventsRepository,
 	keywordCache *KeywordCacheService,
 ) *EventAutoService {
+	jst, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		log.Printf("Warning: Failed to load JST location, using UTC: %v", err)
+		jst = time.UTC
+	}
+
 	return &EventAutoService{
 		eventsRepo:        eventsRepo,
 		keywordCache:      keywordCache,
 		externalClient:    client.NewExternalPostClient(),
 		dateTimeExtractor: NewDateTimeExtractionService(),
+		jstLocation:       jst,
 	}
 }
 
@@ -203,14 +211,14 @@ func (s *EventAutoService) processPost(oshiID int64, post models.ExternalPost, k
 		return false
 	}
 
-	// 投稿日時をパース
-	createdAt, err := time.Parse("2006-01-02 15:04:05", post.CreatedAt)
+	// 投稿日時をパース（日本時間として扱う）
+	createdAt, err := time.ParseInLocation("2006-01-02 15:04:05", post.CreatedAt, s.jstLocation)
 	if err != nil {
 		log.Printf("Failed to parse created_at for post %d: %v", post.ID, err)
 		return false
 	}
 
-	// 投稿内容から日時情報を抽出
+	// 投稿内容から日時情報を抽出（日本時間として抽出される）
 	startsAt, endsAt, hasDateTimePattern := s.dateTimeExtractor.ExtractDateTime(post.Content, createdAt)
 
 	// 日時パターンが見つからない場合はスキップ
@@ -219,28 +227,26 @@ func (s *EventAutoService) processPost(oshiID int64, post models.ExternalPost, k
 		return false
 	}
 
+	// 日時をUTCに変換
+	startsAtUTC := startsAt.UTC()
+	var endsAtUTC *time.Time
+	if endsAt != nil {
+		utcTime := endsAt.UTC()
+		endsAtUTC = &utcTime
+	}
+
 	// イベントタイトル生成
 	title := fmt.Sprintf(post.User.Name)
 
-	log.Printf("Post[%d] - Event time: %s to %s",
-		post.ID,
-		startsAt.Format("2006-01-02 15:04:05"),
-		func() string {
-			if endsAt != nil {
-				return endsAt.Format("2006-01-02 15:04:05")
-			}
-			return "nil"
-		}())
-
-	// イベント作成
+	// イベント作成（UTC時刻で保存）
 	err = s.eventsRepo.CreateAutoEvent(
 		oshiID,
 		post.ID,
 		title,
 		post.Content,
 		matchedCategoryID,
-		startsAt,
-		endsAt,
+		startsAtUTC,
+		endsAtUTC,
 	)
 	if err != nil {
 		log.Printf("Failed to create auto event for post %d: %v", post.ID, err)

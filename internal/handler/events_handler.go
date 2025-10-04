@@ -99,6 +99,13 @@ func (h EventsHandler) UpdateEvent(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Notification timing is required"})
 	}
 
+	// 日時をUTCに変換
+	req.Event.Starts_at = req.Event.Starts_at.UTC()
+	if req.Event.Ends_at != nil {
+		utcTime := req.Event.Ends_at.UTC()
+		req.Event.Ends_at = &utcTime
+	}
+
 	userID := int64(claims.UserID)
 
 	// イベント更新
@@ -139,6 +146,13 @@ func (h EventsHandler) CreateEvent(c echo.Context) error {
 	}
 	if req.Event.Notification_timing == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Notification timing is required"})
+	}
+
+	// 日時をUTCに変換
+	req.Event.Starts_at = req.Event.Starts_at.UTC()
+	if req.Event.Ends_at != nil {
+		utcTime := req.Event.Ends_at.UTC()
+		req.Event.Ends_at = &utcTime
 	}
 
 	userID := int64(claims.UserID)
