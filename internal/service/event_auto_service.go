@@ -176,9 +176,8 @@ func (s *EventAutoService) processOshiPosts(ctx context.Context, oshi *models.Os
 // 投稿を処理してイベント作成
 func (s *EventAutoService) processPost(oshiID int64, post models.ExternalPost, keywords []repository.CategoryKeyword) bool {
 	// 既に登録済みかチェック
-	exists, err := s.eventsRepo.CheckEventExistsByPostID(post.ID)
+	exists, err := s.eventsRepo.CheckEventExistsByPostIDAndOshiID(post.ID, oshiID)
 	if err != nil {
-		log.Printf("Failed to check event existence for post %d: %v", post.ID, err)
 		return false
 	}
 	if exists {
